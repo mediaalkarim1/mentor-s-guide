@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { averageScore, monthLabel } from "./mutabaah-config";
 import { clearMentorOverride, getMentorOverride } from "./recap_overrides.server";
+import { getMasterStore } from "./master_overrides.server";
 import {
   MASTER_MENTORS,
   MASTER_BINAAN,
@@ -17,7 +18,14 @@ export async function listPeriods(supabase: DB): Promise<Period[]> {
     .from("mutabaah_periods")
     .select("id, start_date, end_date, status")
     .order("start_date", { ascending: false });
-  return (data && data.length > 0) ? (data as Period[]) : MASTER_PERIODS;
+  const dbPeriods = (data && data.length > 0) ? (data as Period[]) : [];
+  const storePeriods = getMasterStore().periods;
+
+  const map = new Map<string, Period>();
+  storePeriods.forEach((p) => map.set(p.id, p));
+  dbPeriods.forEach((p) => map.set(p.id, p));
+
+  return Array.from(map.values()).sort((a, b) => b.start_date.localeCompare(a.start_date));
 }
 
 export async function resolvePeriod(supabase: DB, periodId?: string): Promise<Period | null> {

@@ -1,11 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
-import {
-  MASTER_MENTORS,
-  MASTER_BINAAN,
-  MASTER_INDICATORS,
-  MASTER_PERIODS,
-} from "./master-data";
+import { getMasterStore, updateMasterStore } from "./master_overrides.server";
 
 type DB = SupabaseClient<any, "public", any>;
 
@@ -39,34 +34,36 @@ export async function loadAdminData(supabase: DB) {
     console.warn("loadAdminData query exception", e);
   }
 
-  // Merge DB data with in-memory MASTER data seamlessly
+  const store = getMasterStore();
+
+  // Merge DB data with persistent master store seamlessly
   const mentorMap = new Map<string, any>();
-  MASTER_MENTORS.forEach((m) => {
+  store.mentors.forEach((m) => {
     mentorMap.set(m.id, {
       ...m,
-      email: (m as any).email ?? `${m.name.toLowerCase().replace(/\s+/g, "_")}@mutabaah.local`,
-      status: (m as any).status ?? "active",
+      email: m.email ?? `${m.name.toLowerCase().replace(/\s+/g, "_")}@mutabaah.local`,
+      status: m.status ?? "active",
     });
   });
   mentorsData.forEach((m) => mentorMap.set(m.id, m));
   const mentorsList = Array.from(mentorMap.values());
 
   const binaanMap = new Map<string, any>();
-  MASTER_BINAAN.forEach((b) => {
-    binaanMap.set(b.id, { ...b, status: (b as any).status ?? "active" });
+  store.binaan.forEach((b) => {
+    binaanMap.set(b.id, { ...b, status: b.status ?? "active" });
   });
   binaanData.forEach((b) => binaanMap.set(b.id, b));
   const binaanList = Array.from(binaanMap.values());
 
   const indicatorMap = new Map<string, any>();
-  MASTER_INDICATORS.forEach((i) => {
-    indicatorMap.set(i.id, { ...i, active: (i as any).active ?? true });
+  store.indicators.forEach((i) => {
+    indicatorMap.set(i.id, { ...i, active: i.active ?? true });
   });
   indicatorsData.forEach((i) => indicatorMap.set(i.id, i));
-  const indicatorsList = Array.from(indicatorMap.values()).sort((a, b) => a.order_number - b.order_number);
+  const indicatorsList = Array.from(indicatorMap.values()).sort((a, b) => (a.order_number || 0) - (b.order_number || 0));
 
   const periodMap = new Map<string, any>();
-  MASTER_PERIODS.forEach((p) => {
+  store.periods.forEach((p) => {
     periodMap.set(p.id, p);
   });
   periodsData.forEach((p) => periodMap.set(p.id, p));
@@ -105,26 +102,19 @@ export async function upsertRow(supabase: DB, table: string, row: Record<string,
     console.warn(`upsertRow DB warning for table ${table}`, e);
   }
 
-  // Update in-memory master data arrays seamlessly
+  // Update persistent master store
   if (table === "binaan") {
     const bId = id ?? `b1000000-0000-0000-0000-${Date.now().toString().padStart(12, '0').slice(-12)}`;
-    const idx = MASTER_BINAAN.findIndex((b) => b.id === bId);
-    const item = {
+    updateMasterStore("binaan", "upsert", {
       id: bId,
       name: String(row.name),
       mentor_id: String(row.mentor_id),
       phone: row.phone ? String(row.phone) : undefined,
       status: String(row.status ?? "active"),
-    };
-    if (idx >= 0) {
-      MASTER_BINAAN[idx] = { ...MASTER_BINAAN[idx], ...item };
-    } else {
-      MASTER_BINAAN.unshift(item);
-    }
+    });
   } else if (table === "mutabaah_indicators") {
     const iId = id ?? `c1000000-0000-0000-0000-${Date.now().toString().padStart(12, '0').slice(-12)}`;
-    const idx = MASTER_INDICATORS.findIndex((i) => i.id === iId);
-    const item = {
+    updateMasterStore("indicators", "upsert", {
       id: iId,
       code: String(row.code),
       name: String(row.name),
@@ -132,32 +122,15 @@ export async function upsertRow(supabase: DB, table: string, row: Record<string,
       unit: String(row.unit),
       order_number: Number(row.order_number),
       active: Boolean(row.active ?? true),
-    };
-    if (idx >= 0) {
-      MASTER_INDICATORS[idx] = { ...MASTER_INDICATORS[idx], ...item };
-    } else {
-      MASTER_INDICATORS.push(item);
-      MASTER_INDICATORS.sort((a, b) => a.order_number - b.order_number);
-    }
+    });
   } else if (table === "mutabaah_periods") {
     const pId = id ?? `d1000000-0000-0000-0000-${Date.now().toString().padStart(12, '0').slice(-12)}`;
-    if (row.status === "active") {
-      MASTER_PERIODS.forEach((p) => {
-        if (p.id !== pId) p.status = "inactive";
-      });
-    }
-    const idx = MASTER_PERIODS.findIndex((p) => p.id === pId);
-    const item = {
+    updateMasterStore("periods", "upsert", {
       id: pId,
       start_date: String(row.start_date),
       end_date: String(row.end_date),
       status: String(row.status),
-    };
-    if (idx >= 0) {
-      MASTER_PERIODS[idx] = item;
-    } else {
-      MASTER_PERIODS.unshift(item);
-    }
+    });
   }
 
   return { ok: true };
@@ -172,10 +145,7 @@ export async function deleteBinaanRow(supabase: DB, binaanId: string) {
     await db.from("binaan").delete().eq("id", binaanId);
   } catch (e) {}
 
-  const idx = MASTER_BINAAN.findIndex((b) => b.id === binaanId);
-  if (idx >= 0) {
-    MASTER_BINAAN.splice(idx, 1);
-  }
+  updateMasterStore("binaan", "delete", { id: binaanId });
   return { ok: true, mode: "hard" };
 }
 
@@ -198,11 +168,7 @@ export async function restoreBinaanRow(
     await db.from("binaan").update(updates).eq("id", row.id);
   } catch (e) {}
 
-  const idx = MASTER_BINAAN.findIndex((b) => b.id === row.id);
-  if (idx >= 0) {
-    MASTER_BINAAN[idx].status = "active";
-    if (row.mentor_id) MASTER_BINAAN[idx].mentor_id = row.mentor_id;
-  }
+  updateMasterStore("binaan", "upsert", { id: row.id, status: "active", mentor_id: row.mentor_id });
   return { ok: true };
 }
 
@@ -233,8 +199,6 @@ export async function saveMentorRow(
     console.warn("saveMentorRow DB warning", e);
   }
 
-  // Update in-memory MASTER_MENTORS list
-  const idx = MASTER_MENTORS.findIndex((m) => m.id === mentorId);
   const mItem = {
     id: mentorId,
     name: row.name.trim(),
@@ -242,11 +206,7 @@ export async function saveMentorRow(
     username: cleanUsername,
     status: row.status ?? "active",
   };
-  if (idx >= 0) {
-    MASTER_MENTORS[idx] = { ...MASTER_MENTORS[idx], ...mItem };
-  } else {
-    MASTER_MENTORS.push(mItem);
-  }
+  updateMasterStore("mentors", "upsert", mItem);
 
   return { ok: true, mentor: mItem };
 }
@@ -260,10 +220,7 @@ export async function deleteMentorRow(supabase: DB, mentorId: string) {
     await db.from("mentors").delete().eq("id", mentorId);
   } catch (e) {}
 
-  const idx = MASTER_MENTORS.findIndex((m) => m.id === mentorId);
-  if (idx >= 0) {
-    MASTER_MENTORS.splice(idx, 1);
-  }
+  updateMasterStore("mentors", "delete", { id: mentorId });
   return { ok: true, mode: "hard" };
 }
 
