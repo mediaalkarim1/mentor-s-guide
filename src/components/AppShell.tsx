@@ -1,15 +1,25 @@
 import { useState, type ReactNode } from "react";
 import { Link, useNavigate } from "@tanstack/react-router";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
 import { LogOut, Menu, X, ShieldCheck } from "lucide-react";
 
 import { supabase } from "@/integrations/supabase/client";
+import { getMyAccount } from "@/lib/recap.functions";
 import { Button } from "@/components/ui/button";
 
 export function AppShell({ children }: { children: ReactNode }) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const fetchAccount = useServerFn(getMyAccount);
+
+  const { data: accountData } = useQuery({
+    queryKey: ["my-account"],
+    queryFn: () => fetchAccount(),
+  });
+
+  const isAdmin = accountData?.isAdmin ?? false;
 
   async function signOut() {
     await queryClient.cancelQueries();
@@ -32,16 +42,16 @@ export function AppShell({ children }: { children: ReactNode }) {
 
           {/* Desktop Navigation */}
           <div className="hidden items-center gap-2 md:flex">
-            <nav className="flex items-center gap-1.5 text-sm">
-              <NavLink to="/dashboard">Rekap</NavLink>
-              <NavLink to="/bulanan">Bulanan</NavLink>
-              <NavLink to="/admin">Admin</NavLink>
+            <nav className="flex items-center gap-1.5 text-sm font-medium">
+              <NavLink to="/dashboard">Rekap Pekanan</NavLink>
+              <NavLink to="/bulanan">Rekap Bulanan</NavLink>
+              {isAdmin && <NavLink to="/admin">Panel Admin</NavLink>}
             </nav>
             <Button
               variant="ghost"
               size="sm"
               onClick={signOut}
-              className="ml-2 text-[#52635C] hover:bg-[#EAF4EE] hover:text-[#006B54]"
+              className="ml-2 text-[#52635C] hover:bg-[#EAF4EE] hover:text-[#006B54] h-9 text-xs font-semibold"
               aria-label="Keluar"
             >
               <LogOut className="mr-1.5 h-4 w-4" />
@@ -72,9 +82,11 @@ export function AppShell({ children }: { children: ReactNode }) {
               <MobileNavLink to="/bulanan" onClick={() => setMobileMenuOpen(false)}>
                 Rekap Bulanan
               </MobileNavLink>
-              <MobileNavLink to="/admin" onClick={() => setMobileMenuOpen(false)}>
-                Panel Admin
-              </MobileNavLink>
+              {isAdmin && (
+                <MobileNavLink to="/admin" onClick={() => setMobileMenuOpen(false)}>
+                  Panel Admin
+                </MobileNavLink>
+              )}
             </nav>
             <div className="pt-2 border-t border-[#DCE9E1]">
               <Button
@@ -84,7 +96,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                   setMobileMenuOpen(false);
                   signOut();
                 }}
-                className="w-full justify-center text-destructive border-destructive/20 hover:bg-destructive/10 h-10"
+                className="w-full justify-center text-destructive border-destructive/20 hover:bg-destructive/10 h-10 font-semibold"
               >
                 <LogOut className="mr-2 h-4 w-4" /> Keluar dari Akun
               </Button>

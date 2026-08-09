@@ -2,7 +2,7 @@ import { useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { Download, Loader2, Users, CheckCircle2, AlertCircle } from "lucide-react";
+import { Download, Loader2, Users, CheckCircle2, AlertCircle, Calendar } from "lucide-react";
 
 import { getExportRows, getMentorRecap } from "@/lib/recap.functions";
 import { getAdminData } from "@/lib/admin.functions";
@@ -130,6 +130,15 @@ function DashboardPage() {
               ))}
             </SelectContent>
           </Select>
+          <Button
+            asChild
+            variant="outline"
+            className="w-full sm:w-auto bg-[#EAF4EE] border-[#CFE4D8] text-[#006B54] hover:bg-[#006B54] hover:text-white h-10 text-xs font-semibold"
+          >
+            <Link to="/bulanan">
+              <Calendar className="mr-1.5 h-4 w-4" /> Rekap Bulanan
+            </Link>
+          </Button>
           <Button
             variant="outline"
             onClick={handleExport}

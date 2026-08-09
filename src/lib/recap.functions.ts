@@ -50,6 +50,19 @@ export const getAdminDashboard = createServerFn({ method: "POST" })
     const email = (context.claims as { email?: string }).email ?? null;
     const account = await resolveAccount(context.userId, email);
 
+    // Security Authorization Guard: Non-admin Mentors CANNOT access Admin Dashboard
+    if (!account.isAdmin) {
+      return {
+        ok: false,
+        unauthorized: true,
+        account,
+        periods: [],
+        period: null,
+        summaries: [],
+        stats: { mentors: 0, binaan: 0, filled: 0, missing: 0, average: 0 },
+      };
+    }
+
     const { listPeriods, resolvePeriod, buildMentorSummaries } = await import("./recap.server");
     const { averageScore, monthLabel } = await import("./mutabaah-config");
 
@@ -71,6 +84,7 @@ export const getAdminDashboard = createServerFn({ method: "POST" })
     const scored = summaries.filter((s) => s.filled > 0);
 
     return {
+      ok: true,
       account,
       periods,
       period,
@@ -139,6 +153,37 @@ export const getMonthlyRecap = createServerFn({ method: "POST" })
       });
 
     return { months, month, periods: monthPeriods, rows, isAdmin: account.isAdmin };
+  });
+
+export const getBinaanMonthlyRecap = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data: unknown) =>
+    z.object({ month: z.string().optional(), mentorId: z.string().uuid().optional() }).parse(data ?? {}),
+  )
+  .handler(async ({ data, context }) => {
+    const { resolveAccount } = await import("./account.server");
+    const { buildBinaanMonthlyRecap } = await import("./recap.server");
+    const email = (context.claims as { email?: string }).email ?? null;
+    const account = await resolveAccount(context.userId, email);
+
+    // Strict Mentor Data Isolation:
+    const mentorId = account.isAdmin && data.mentorId ? data.mentorId : account.mentor?.id;
+    if (!mentorId) {
+      return { months: [], month: "", periods: [], rows: [], mentorName: "-", isAdmin: account.isAdmin };
+    }
+
+    const recap = await buildBinaanMonthlyRecap(context.supabase, mentorId, data.month);
+    return { ...recap, isAdmin: account.isAdmin };
+  });
+
+export const getSingleBinaanMonthlyDetail = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data: unknown) =>
+    z.object({ binaanId: z.string().uuid(), month: z.string().optional() }).parse(data),
+  )
+  .handler(async ({ data, context }) => {
+    const { buildSingleBinaanMonthlyDetail } = await import("./recap.server");
+    return buildSingleBinaanMonthlyDetail(context.supabase, data.binaanId, data.month);
   });
 
 export const getExportRows = createServerFn({ method: "POST" })

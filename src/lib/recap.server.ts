@@ -367,3 +367,168 @@ export async function buildExportRows(supabase: DB, periodId?: string) {
     total: Number(s.total_score),
   }));
 }
+
+/* ==============================================================
+   REKAP BULANAN BINAAN (STRICT MENTOR ISOLATION)
+   ============================================================== */
+
+export type BinaanMonthlyRow = {
+  binaanId: string;
+  binaanName: string;
+  weeklyScores: (number | null)[];
+  monthlyAverage: number;
+};
+
+export async function buildBinaanMonthlyRecap(
+  supabase: DB,
+  mentorId: string,
+  targetMonth?: string,
+) {
+  const periods = await listPeriods(supabase);
+  const months = Array.from(new Set(periods.map((p) => monthLabel(p.start_date))));
+  const month = targetMonth && months.includes(targetMonth) ? targetMonth : (months[0] ?? null);
+
+  const monthPeriods = periods
+    .filter((p) => month && monthLabel(p.start_date) === month)
+    .sort((a, b) => a.start_date.localeCompare(b.start_date));
+
+  // Get binaan belonging ONLY to this mentorId (Strict mentor isolation)
+  const { data: binaanRows } = await supabase
+    .from("binaan")
+    .select("id, name")
+    .eq("mentor_id", mentorId)
+    .eq("status", "active")
+    .order("name");
+
+  const { data: mentorRow } = await supabase
+    .from("mentors")
+    .select("name")
+    .eq("id", mentorId)
+    .maybeSingle();
+
+  const binaanList = binaanRows ?? [];
+  const monthPeriodIds = monthPeriods.map((p) => p.id);
+
+  let submissions: any[] = [];
+  if (monthPeriodIds.length > 0 && binaanList.length > 0) {
+    const { data: subs } = await supabase
+      .from("mutabaah_submissions")
+      .select("id, binaan_id, period_id, total_score")
+      .in("period_id", monthPeriodIds)
+      .in("binaan_id", binaanList.map((b) => b.id));
+    submissions = subs ?? [];
+  }
+
+  const rows: BinaanMonthlyRow[] = binaanList.map((b) => {
+    const weeklyScores = monthPeriods.map((p) => {
+      const sub = submissions.find((s) => s.binaan_id === b.id && s.period_id === p.id);
+      return sub ? Number(sub.total_score) : null;
+    });
+
+    const validScores = weeklyScores.filter((v): v is number => v !== null);
+    const monthlyAverage = averageScore(validScores);
+
+    return {
+      binaanId: b.id,
+      binaanName: b.name,
+      weeklyScores,
+      monthlyAverage,
+    };
+  });
+
+  return {
+    months,
+    month,
+    periods: monthPeriods,
+    rows,
+    mentorName: mentorRow?.name ?? "Mentor",
+  };
+}
+
+export async function buildSingleBinaanMonthlyDetail(
+  supabase: DB,
+  binaanId: string,
+  targetMonth?: string,
+) {
+  const { data: binaan } = await supabase
+    .from("binaan")
+    .select("id, name, mentor_id, mentors(name)")
+    .eq("id", binaanId)
+    .maybeSingle();
+
+  if (!binaan) return null;
+
+  const [periods, indicators] = await Promise.all([
+    listPeriods(supabase),
+    listIndicators(supabase),
+  ]);
+
+  const months = Array.from(new Set(periods.map((p) => monthLabel(p.start_date))));
+  const month = targetMonth && months.includes(targetMonth) ? targetMonth : (months[0] ?? null);
+
+  const monthPeriods = periods
+    .filter((p) => month && monthLabel(p.start_date) === month)
+    .sort((a, b) => a.start_date.localeCompare(b.start_date));
+
+  const monthPeriodIds = monthPeriods.map((p) => p.id);
+
+  let submissions: any[] = [];
+  if (monthPeriodIds.length > 0) {
+    const { data: subs } = await supabase
+      .from("mutabaah_submissions")
+      .select("id, period_id, total_score, mutabaah_entries(indicator_id, realization, achievement_percentage)")
+      .eq("binaan_id", binaanId)
+      .in("period_id", monthPeriodIds);
+    submissions = subs ?? [];
+  }
+
+  const weeklyBreakdown = monthPeriods.map((p, idx) => {
+    const sub = submissions.find((s) => s.period_id === p.id);
+    return {
+      weekNumber: idx + 1,
+      periodId: p.id,
+      startDate: p.start_date,
+      endDate: p.end_date,
+      score: sub ? Number(sub.total_score) : null,
+    };
+  });
+
+  const validScores = weeklyBreakdown.map((w) => w.score).filter((s): s is number => s !== null);
+  const monthlyAverage = averageScore(validScores);
+
+  // Indicator summary for this binaan in this month
+  const indicatorSummary = indicators.map((ind) => {
+    let totalRealization = 0;
+    let totalAchievement = 0;
+    let count = 0;
+
+    for (const sub of submissions) {
+      for (const e of sub.mutabaah_entries ?? []) {
+        if (e.indicator_id === ind.id) {
+          totalRealization += Number(e.realization);
+          totalAchievement += Number(e.achievement_percentage);
+          count++;
+        }
+      }
+    }
+
+    return {
+      id: ind.id,
+      name: ind.name,
+      target: ind.target,
+      unit: ind.unit,
+      avgRealization: count > 0 ? Math.round((totalRealization / count) * 100) / 100 : 0,
+      avgScore: count > 0 ? Math.round((totalAchievement / count) * 100) / 100 : 0,
+    };
+  });
+
+  return {
+    binaanId: binaan.id,
+    binaanName: binaan.name,
+    mentorName: (binaan.mentors as any)?.name ?? "Mentor",
+    month,
+    weeklyBreakdown,
+    monthlyAverage,
+    indicatorSummary,
+  };
+}
