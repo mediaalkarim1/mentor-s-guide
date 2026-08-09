@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { supabaseAdmin } from "@/integrations/supabase/client.server";
 
 type DB = SupabaseClient<any, "public", any>;
 
@@ -168,66 +169,68 @@ export const EXACT_MASTER_DATA = [
 ];
 
 async function ensureMasterDataSeeded(supabase: DB) {
-  const { data: existingMentors } = await supabase.from("mentors").select("id, name, username, email, status");
-  const mentorList = existingMentors ?? [];
+  try {
+    const { data: existingMentors } = await supabase.from("mentors").select("id, name, email, status");
+    const mentorList = existingMentors ?? [];
 
-  for (const mData of EXACT_MASTER_DATA) {
-    let mentor = mentorList.find((m) =>
-      mData.aliases.some((a) => m.name.toLowerCase().includes(a) || m.username?.toLowerCase() === a)
-    );
+    for (const mData of EXACT_MASTER_DATA) {
+      let mentor = mentorList.find((m) =>
+        mData.aliases.some((a) => m.name.toLowerCase().includes(a) || (m.email && m.email.toLowerCase().includes(a)))
+      );
 
-    let mentorId = mentor?.id;
+      let mentorId = mentor?.id;
 
-    if (!mentorId) {
-      const { data: inserted } = await supabase
-        .from("mentors")
-        .insert({ name: mData.name, username: mData.username, email: mData.email, status: "active" })
-        .select("id")
-        .maybeSingle();
+      if (!mentorId) {
+        const { data: inserted } = await supabase
+          .from("mentors")
+          .insert({ name: mData.name, email: mData.email, status: "active" })
+          .select("id")
+          .maybeSingle();
 
-      if (inserted?.id) {
-        mentorId = inserted.id;
+        if (inserted?.id) {
+          mentorId = inserted.id;
+        }
+      } else {
+        await supabase
+          .from("mentors")
+          .update({ name: mData.name, email: mData.email, status: "active" })
+          .eq("id", mentorId);
       }
-    } else {
-      await supabase
-        .from("mentors")
-        .update({ name: mData.name, username: mData.username, email: mData.email, status: "active" })
-        .eq("id", mentorId);
-    }
 
-    if (mentorId) {
-      const { data: existingBinaan } = await supabase
-        .from("binaan")
-        .select("id, name")
-        .eq("mentor_id", mentorId);
-      
-      const existingMap = new Map((existingBinaan ?? []).map((b) => [b.name.toLowerCase().trim(), b.id]));
+      if (mentorId) {
+        const { data: existingBinaan } = await supabase
+          .from("binaan")
+          .select("id, name")
+          .eq("mentor_id", mentorId);
+        
+        const existingMap = new Map((existingBinaan ?? []).map((b) => [b.name.toLowerCase().trim(), b.id]));
 
-      for (const bName of mData.binaan) {
-        const key = bName.toLowerCase().trim();
-        const existingId = existingMap.get(key);
+        for (const bName of mData.binaan) {
+          const key = bName.toLowerCase().trim();
+          const existingId = existingMap.get(key);
 
-        if (!existingId) {
-          const { data: unmapped } = await supabase
-            .from("binaan")
-            .select("id")
-            .ilike("name", bName)
-            .maybeSingle();
+          if (!existingId) {
+            const { data: unmapped } = await supabase
+              .from("binaan")
+              .select("id")
+              .ilike("name", bName)
+              .maybeSingle();
 
-          if (unmapped?.id) {
-            await supabase.from("binaan").update({ mentor_id: mentorId, status: "active" }).eq("id", unmapped.id);
+            if (unmapped?.id) {
+              await supabase.from("binaan").update({ mentor_id: mentorId, status: "active" }).eq("id", unmapped.id);
+            } else {
+              await supabase.from("binaan").insert({ name: bName, mentor_id: mentorId, status: "active" });
+            }
           } else {
-            await supabase.from("binaan").insert({ name: bName, mentor_id: mentorId, status: "active" });
+            await supabase.from("binaan").update({ status: "active" }).eq("id", existingId);
           }
-        } else {
-          await supabase.from("binaan").update({ status: "active" }).eq("id", existingId);
         }
       }
     }
+  } catch (err) {
+    console.error("ensureMasterDataSeeded error:", err);
   }
 }
-
-import { supabaseAdmin } from "@/integrations/supabase/client.server";
 
 export async function loadAdminData(supabase: DB) {
   let db = supabase;
@@ -236,14 +239,19 @@ export async function loadAdminData(supabase: DB) {
       db = supabaseAdmin as unknown as DB;
     }
   } catch (e) {
-    // fallback to provided client
+    // fallback
   }
 
-  // Run database sync to guarantee all 13 mentors and 84 binaan are present & mapped
+  // Auto-seed and auto-map all 13 mentors and 84 binaan
   await ensureMasterDataSeeded(db);
 
-  let { data: mentorsData } = await db.from("mentors").select("id, name, email, username, status").order("name");
+  let { data: mentorsData } = await db.from("mentors").select("id, name, email, status").order("name");
   let { data: binaanData } = await db.from("binaan").select("id, name, mentor_id, phone, status").order("name");
+
+  const mentorsMapped = (mentorsData ?? []).map((m) => ({
+    ...m,
+    username: m.email ? m.email.split("@")[0] : m.name.toLowerCase().replace(/\s+/g, "_"),
+  }));
 
   const [indicators, periods] = await Promise.all([
     db
@@ -257,7 +265,7 @@ export async function loadAdminData(supabase: DB) {
   ]);
 
   return {
-    mentors: mentorsData ?? [],
+    mentors: mentorsMapped,
     binaan: binaanData ?? [],
     indicators: indicators.data ?? [],
     periods: periods.data ?? [],
@@ -327,21 +335,27 @@ export async function saveMentorRow(
     // fallback
   }
 
-  const { id, password, ...values } = row;
-  const username = values.username?.trim().toLowerCase() || null;
-  const email = values.email?.trim().toLowerCase() || (username ? `${username}@mutabaah.local` : null);
+  const { id, password, username, ...values } = row;
+  const cleanUsername = username?.trim().toLowerCase() || null;
+  const email = values.email?.trim().toLowerCase() || (cleanUsername ? `${cleanUsername}@mutabaah.local` : `${row.name.toLowerCase().replace(/\s+/g, '_')}@mutabaah.local`);
 
   let mentorId = id;
+  const updatePayload: Record<string, unknown> = {
+    name: row.name,
+    email,
+    status: row.status ?? "active",
+  };
+
   if (mentorId) {
     const { error } = await db
       .from("mentors")
-      .update({ ...values, username, email })
+      .update(updatePayload)
       .eq("id", mentorId);
     if (error) return { ok: false, error: error.message };
   } else {
     const { data: inserted, error } = await db
       .from("mentors")
-      .insert({ ...values, username, email, status: values.status ?? "active" })
+      .insert(updatePayload)
       .select("id")
       .single();
     if (error) return { ok: false, error: error.message };
