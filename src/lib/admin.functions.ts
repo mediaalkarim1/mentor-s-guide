@@ -57,6 +57,14 @@ export const saveMentor = createServerFn({ method: "POST" })
     });
   });
 
+export const deleteMentor = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data: unknown) => z.object({ id: z.string().uuid() }).parse(data))
+  .handler(async ({ data, context }) => {
+    const { deleteMentorRow } = await import("./admin.server");
+    return deleteMentorRow(context.supabase, data.id);
+  });
+
 export const saveBinaan = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((data: unknown) => binaanSchema.parse(data))

@@ -303,6 +303,37 @@ export async function restoreBinaanRow(
   return { ok: true };
 }
 
+export async function deleteMentorRow(supabase: DB, mentorId: string) {
+  let db = supabase;
+  try {
+    if (process.env["SUPABASE_SERVICE_ROLE_KEY"]) {
+      db = supabaseAdmin as unknown as DB;
+    }
+  } catch (e) {
+    // fallback
+  }
+
+  const { count, error: countError } = await db
+    .from("binaan")
+    .select("id", { count: "exact", head: true })
+    .eq("mentor_id", mentorId);
+
+  if (countError) return { ok: false, error: countError.message };
+
+  if (count && count > 0) {
+    const { error } = await db
+      .from("mentors")
+      .update({ status: "inactive" })
+      .eq("id", mentorId);
+    if (error) return { ok: false, error: error.message };
+    return { ok: true, mode: "soft" };
+  } else {
+    const { error } = await db.from("mentors").delete().eq("id", mentorId);
+    if (error) return { ok: false, error: error.message };
+    return { ok: true, mode: "hard" };
+  }
+}
+
 export async function savePeriodRow(
   supabase: DB,
   row: { id?: string | undefined; start_date: string; end_date: string; status: string },

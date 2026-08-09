@@ -200,6 +200,7 @@ function Panel({ title, children }: { title: string; children: React.ReactNode }
 }
 
 function MentorSection({ rows, binaan }: { rows: any[]; binaan: any[] }) {
+  const queryClient = useQueryClient();
   const save = useSaver(saveMentor, ["admin-data", "admin-dashboard", "admin-mentors"]);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -210,6 +211,29 @@ function MentorSection({ rows, binaan }: { rows: any[]; binaan: any[] }) {
   const [editStatus, setEditStatus] = useState<"active" | "inactive">("active");
 
   const [viewingMentor, setViewingMentor] = useState<any | null>(null);
+
+  const deleteMentorFn = useServerFn(deleteMentor);
+  const [deletingMentor, setDeletingMentor] = useState<any | null>(null);
+
+  const deleteMentorMutation = useMutation({
+    mutationFn: (id: string) => deleteMentorFn({ data: { id } }),
+    onSuccess: (res: any) => {
+      if (res?.ok === false) {
+        toast.error(res.error ?? "Gagal menghapus mentor.");
+        return;
+      }
+      toast.success(
+        res?.mode === "soft"
+          ? "Mentor dinonaktifkan (karena memiliki binaan terhubung)."
+          : "Mentor berhasil dihapus.",
+      );
+      queryClient.invalidateQueries({ queryKey: ["admin-data"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-dashboard"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-mentors"] });
+      setDeletingMentor(null);
+    },
+    onError: () => toast.error("Gagal menghapus mentor."),
+  });
 
   const openEditModal = (m: any) => {
     setEditingMentor(m);
@@ -309,12 +333,20 @@ function MentorSection({ rows, binaan }: { rows: any[]; binaan: any[] }) {
                           {isActive ? "Aktif" : "Nonaktif"}
                         </Badge>
                       </td>
-                      <td className="px-3 py-2.5 text-right space-x-1">
+                      <td className="px-3 py-2.5 text-right space-x-1 whitespace-nowrap">
                         <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => setViewingMentor(m)}>
                           Detail
                         </Button>
                         <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => openEditModal(m)}>
                           Edit
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="destructive"
+                          className="h-7 text-xs"
+                          onClick={() => setDeletingMentor(m)}
+                        >
+                          Hapus
                         </Button>
                       </td>
                     </tr>
@@ -454,6 +486,33 @@ function MentorSection({ rows, binaan }: { rows: any[]; binaan: any[] }) {
           </form>
         </DialogContent>
       </Dialog>
+
+      {/* Delete Mentor Confirmation Modal */}
+      <AlertDialog open={deletingMentor !== null} onOpenChange={(open) => !open && setDeletingMentor(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Hapus Mentor?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Apakah Anda yakin ingin menghapus mentor <strong>{deletingMentor?.name}</strong>? Jika mentor ini memiliki binaan terhubung, status mentor akan diubah menjadi <strong>Nonaktif</strong> untuk menjaga integritas data.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setDeletingMentor(null)}>
+              Batal
+            </AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => {
+                if (deletingMentor) {
+                  deleteMentorMutation.mutate(deletingMentor.id);
+                }
+              }}
+            >
+              {deleteMentorMutation.isPending ? "Menghapus..." : "Hapus"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
