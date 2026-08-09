@@ -13,7 +13,9 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as MutabaahRouteImport } from './routes/mutabaah'
+import { Route as AuthenticatedBulananRouteImport } from './routes/_authenticated/bulanan'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
+import { Route as AuthenticatedBinaanBinaanIdRouteImport } from './routes/_authenticated/binaan.$binaanId'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -34,23 +36,38 @@ const MutabaahRoute = MutabaahRouteImport.update({
   path: '/mutabaah',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthenticatedBulananRoute = AuthenticatedBulananRouteImport.update({
+  id: '/bulanan',
+  path: '/bulanan',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
   id: '/dashboard',
   path: '/dashboard',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedBinaanBinaanIdRoute =
+  AuthenticatedBinaanBinaanIdRouteImport.update({
+    id: '/binaan/$binaanId',
+    path: '/binaan/$binaanId',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/mutabaah': typeof MutabaahRoute
+  '/bulanan': typeof AuthenticatedBulananRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
+  '/binaan/$binaanId': typeof AuthenticatedBinaanBinaanIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/mutabaah': typeof MutabaahRoute
+  '/bulanan': typeof AuthenticatedBulananRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
+  '/binaan/$binaanId': typeof AuthenticatedBinaanBinaanIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -58,20 +75,36 @@ export interface FileRoutesById {
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/auth': typeof AuthRoute
   '/mutabaah': typeof MutabaahRoute
+  '/_authenticated/bulanan': typeof AuthenticatedBulananRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
+  '/_authenticated/binaan/$binaanId': typeof AuthenticatedBinaanBinaanIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/auth' | '/mutabaah' | '/dashboard'
+  fullPaths:
+    | '/'
+    | '/auth'
+    | '/mutabaah'
+    | '/bulanan'
+    | '/dashboard'
+    | '/binaan/$binaanId'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/auth' | '/mutabaah' | '/dashboard'
+  to:
+    | '/'
+    | '/auth'
+    | '/mutabaah'
+    | '/bulanan'
+    | '/dashboard'
+    | '/binaan/$binaanId'
   id:
     | '__root__'
     | '/'
     | '/_authenticated'
     | '/auth'
     | '/mutabaah'
+    | '/_authenticated/bulanan'
     | '/_authenticated/dashboard'
+    | '/_authenticated/binaan/$binaanId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -111,6 +144,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof MutabaahRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_authenticated/bulanan': {
+      id: '/_authenticated/bulanan'
+      path: '/bulanan'
+      fullPath: '/bulanan'
+      preLoaderRoute: typeof AuthenticatedBulananRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/dashboard': {
       id: '/_authenticated/dashboard'
       path: '/dashboard'
@@ -118,15 +158,26 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedDashboardRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/binaan/$binaanId': {
+      id: '/_authenticated/binaan/$binaanId'
+      path: '/binaan/$binaanId'
+      fullPath: '/binaan/$binaanId'
+      preLoaderRoute: typeof AuthenticatedBinaanBinaanIdRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
   }
 }
 
 interface AuthenticatedRouteRouteChildren {
+  AuthenticatedBulananRoute: typeof AuthenticatedBulananRoute
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
+  AuthenticatedBinaanBinaanIdRoute: typeof AuthenticatedBinaanBinaanIdRoute
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
+  AuthenticatedBulananRoute: AuthenticatedBulananRoute,
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
+  AuthenticatedBinaanBinaanIdRoute: AuthenticatedBinaanBinaanIdRoute,
 }
 
 const AuthenticatedRouteRouteWithChildren =
