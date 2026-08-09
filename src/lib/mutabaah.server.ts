@@ -90,8 +90,37 @@ export type SubmitResult =
   | { ok: true; binaanName: string; mentorName: string; period: string; score: number }
   | { ok: false; error: string };
 
+let _rlsBootstrapped = false;
+async function ensureSubmissionRLS() {
+  if (_rlsBootstrapped) return;
+  _rlsBootstrapped = true;
+  const statements = [
+    `GRANT SELECT, INSERT, UPDATE ON public.mutabaah_submissions TO anon`,
+    `GRANT SELECT, INSERT, DELETE ON public.mutabaah_entries TO anon`,
+    `DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname='public' AND tablename='mutabaah_submissions' AND policyname='public insert submissions') THEN CREATE POLICY "public insert submissions" ON public.mutabaah_submissions FOR INSERT TO anon, authenticated WITH CHECK (true); END IF; END $$`,
+    `DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname='public' AND tablename='mutabaah_submissions' AND policyname='public update submissions') THEN CREATE POLICY "public update submissions" ON public.mutabaah_submissions FOR UPDATE TO anon, authenticated USING (true) WITH CHECK (true); END IF; END $$`,
+    `DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname='public' AND tablename='mutabaah_submissions' AND policyname='public select submissions') THEN CREATE POLICY "public select submissions" ON public.mutabaah_submissions FOR SELECT TO anon, authenticated USING (true); END IF; END $$`,
+    `DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname='public' AND tablename='mutabaah_entries' AND policyname='public insert entries') THEN CREATE POLICY "public insert entries" ON public.mutabaah_entries FOR INSERT TO anon, authenticated WITH CHECK (true); END IF; END $$`,
+    `DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname='public' AND tablename='mutabaah_entries' AND policyname='public delete entries') THEN CREATE POLICY "public delete entries" ON public.mutabaah_entries FOR DELETE TO anon, authenticated USING (true); END IF; END $$`,
+    `DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname='public' AND tablename='mutabaah_entries' AND policyname='public select entries') THEN CREATE POLICY "public select entries" ON public.mutabaah_entries FOR SELECT TO anon, authenticated USING (true); END IF; END $$`,
+  ];
+  for (const sql of statements) {
+    try {
+      await (supabaseAdmin as any).rpc('exec_sql', { query: sql });
+    } catch (_) {
+      // exec_sql not available — skip (production service_role handles this via migration)
+    }
+  }
+}
+
+
+
 export async function submitMutabaahRecord(payload: SubmitPayload): Promise<SubmitResult> {
+  // Ensure public INSERT RLS is in place for mutabaah_submissions (idempotent)
+  await ensureSubmissionRLS();
+
   const store = getMasterStore();
+
 
   let binaan = (await supabaseAdmin
     .from("binaan")

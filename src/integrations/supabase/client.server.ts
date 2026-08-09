@@ -31,18 +31,39 @@ function createSupabaseAdminClient() {
   const metaEnv = typeof import.meta !== 'undefined' && import.meta.env ? import.meta.env : ({} as Record<string, string>);
   const procEnv = typeof process !== 'undefined' && process.env ? process.env : ({} as Record<string, string>);
 
+  // Cloudflare Workers: try to get env from request context binding
+  let cfEnv: Record<string, string> = {};
+  try {
+    // @ts-ignore - Cloudflare Workers specific
+    const ctx = globalThis.__rlsEnvCache || {};
+    cfEnv = ctx;
+  } catch (_) {}
+
+  // Also try globalThis for Cloudflare Workers env vars
+  const gThis = typeof globalThis !== 'undefined' ? (globalThis as any) : {};
+
   const SUPABASE_URL =
     procEnv['SUPABASE_URL'] ||
     procEnv['VITE_SUPABASE_URL'] ||
+    gThis['SUPABASE_URL'] ||
+    cfEnv['SUPABASE_URL'] ||
     metaEnv['VITE_SUPABASE_URL'] ||
     metaEnv['SUPABASE_URL'] ||
     'https://mvbmkbkgjmvyvadhqbvu.supabase.co';
 
+  // Priority: real service_role key from Cloudflare Workers secrets > publishable key fallback
+  // SUPABASE_SERVICE_ROLE_KEY is set as a secret in Cloudflare Workers dashboard
   const SUPABASE_SERVICE_ROLE_KEY =
     procEnv['SUPABASE_SERVICE_ROLE_KEY'] ||
+    gThis['SUPABASE_SERVICE_ROLE_KEY'] ||
+    cfEnv['SUPABASE_SERVICE_ROLE_KEY'] ||
     procEnv['SUPABASE_SECRET_KEY'] ||
+    metaEnv['SUPABASE_SERVICE_ROLE_KEY'] ||
+    // Only fall back to publishable key if nothing better is available
     procEnv['SUPABASE_PUBLISHABLE_KEY'] ||
     procEnv['VITE_SUPABASE_PUBLISHABLE_KEY'] ||
+    gThis['SUPABASE_PUBLISHABLE_KEY'] ||
+    cfEnv['SUPABASE_PUBLISHABLE_KEY'] ||
     metaEnv['VITE_SUPABASE_PUBLISHABLE_KEY'] ||
     metaEnv['SUPABASE_PUBLISHABLE_KEY'] ||
     'sb_publishable_ygKD2Pijsuxbh9K6kdmYjg_OC_3gykK';
@@ -58,6 +79,9 @@ function createSupabaseAdminClient() {
     },
   });
 }
+
+
+
 
 let _supabaseAdmin: ReturnType<typeof createSupabaseAdminClient> | undefined;
 

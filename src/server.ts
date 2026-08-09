@@ -46,6 +46,17 @@ function isH3SwallowedErrorBody(body: string): boolean {
 
 export default {
   async fetch(request: Request, env: unknown, ctx: unknown) {
+    // Inject Cloudflare Workers env bindings into globalThis so server functions can read them
+    if (env && typeof env === 'object') {
+      (globalThis as any).__cf_env = env;
+      // Also inject individual keys for easier access
+      for (const [key, value] of Object.entries(env as Record<string, unknown>)) {
+        if (typeof value === 'string') {
+          (globalThis as any)[key] = value;
+        }
+      }
+    }
+
     try {
       const handler = await getServerEntry();
       const response = await handler.fetch(request, env, ctx);
@@ -58,4 +69,5 @@ export default {
       });
     }
   },
+
 };
