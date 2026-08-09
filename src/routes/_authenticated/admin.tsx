@@ -116,29 +116,29 @@ function AdminPage() {
 
   const mergedPeriods = useMemo(() => {
     const map = new Map<string, any>();
-    (clientStore.periods ?? []).forEach((p: any) => map.set(p.id, p));
-    (master.data?.periods ?? []).forEach((p: any) => map.set(p.id, p));
+    (clientStore.periods ?? []).forEach((p: any) => map.set(`${p.start_date}::${p.end_date}`, p));
+    (master.data?.periods ?? []).forEach((p: any) => map.set(`${p.start_date}::${p.end_date}`, p));
     return Array.from(map.values()).sort((a, b) => b.start_date.localeCompare(a.start_date));
   }, [master.data?.periods, clientStore.periods]);
 
   const mergedMentors = useMemo(() => {
     const map = new Map<string, any>();
-    (clientStore.mentors ?? []).forEach((m: any) => map.set(m.id, m));
-    (master.data?.mentors ?? []).forEach((m: any) => map.set(m.id, m));
+    (clientStore.mentors ?? []).forEach((m: any) => map.set((m.name || "").toLowerCase().trim(), m));
+    (master.data?.mentors ?? []).forEach((m: any) => map.set((m.name || "").toLowerCase().trim(), m));
     return Array.from(map.values());
   }, [master.data?.mentors, clientStore.mentors]);
 
   const mergedBinaan = useMemo(() => {
     const map = new Map<string, any>();
-    (clientStore.binaan ?? []).forEach((b: any) => map.set(b.id, b));
-    (master.data?.binaan ?? []).forEach((b: any) => map.set(b.id, b));
+    (clientStore.binaan ?? []).forEach((b: any) => map.set(`${(b.name || "").toLowerCase().trim()}::${b.mentor_id}`, b));
+    (master.data?.binaan ?? []).forEach((b: any) => map.set(`${(b.name || "").toLowerCase().trim()}::${b.mentor_id}`, b));
     return Array.from(map.values());
   }, [master.data?.binaan, clientStore.binaan]);
 
   const mergedIndicators = useMemo(() => {
     const map = new Map<string, any>();
-    (clientStore.indicators ?? []).forEach((i: any) => map.set(i.id, i));
-    (master.data?.indicators ?? []).forEach((i: any) => map.set(i.id, i));
+    (clientStore.indicators ?? []).forEach((i: any) => map.set((i.code || "").toUpperCase().trim(), i));
+    (master.data?.indicators ?? []).forEach((i: any) => map.set((i.code || "").toUpperCase().trim(), i));
     return Array.from(map.values()).sort((a, b) => (a.order_number || 0) - (b.order_number || 0));
   }, [master.data?.indicators, clientStore.indicators]);
 

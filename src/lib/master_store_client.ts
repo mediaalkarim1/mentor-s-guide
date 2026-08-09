@@ -60,52 +60,63 @@ export function updateClientMasterStore(
   const store = getClientMasterStore();
 
   if (type === "mentors") {
+    const cleanName = (item.name || "").toLowerCase().trim();
     if (action === "delete") {
-      store.mentors = store.mentors.filter((m) => m.id !== item.id);
+      store.mentors = store.mentors.filter((m) => m.id !== item.id && (m.name || "").toLowerCase().trim() !== cleanName);
     } else {
-      const idx = store.mentors.findIndex((m) => m.id === item.id);
+      const idx = store.mentors.findIndex((m) => m.id === item.id || (m.name || "").toLowerCase().trim() === cleanName);
       if (idx >= 0) store.mentors[idx] = { ...store.mentors[idx], ...item };
       else store.mentors.push(item);
     }
   } else if (type === "binaan") {
+    const cleanName = (item.name || "").toLowerCase().trim();
     if (action === "delete") {
-      store.binaan = store.binaan.filter((b) => b.id !== item.id);
+      store.binaan = store.binaan.filter((b) => b.id !== item.id && (b.name || "").toLowerCase().trim() !== cleanName);
     } else {
-      const idx = store.binaan.findIndex((b) => b.id === item.id);
+      const idx = store.binaan.findIndex(
+        (b) => b.id === item.id || ((b.name || "").toLowerCase().trim() === cleanName && b.mentor_id === item.mentor_id),
+      );
       if (idx >= 0) store.binaan[idx] = { ...store.binaan[idx], ...item };
       else store.binaan.unshift(item);
     }
   } else if (type === "indicators") {
+    const cleanCode = (item.code || "").toUpperCase().trim();
     if (action === "delete") {
-      store.indicators = store.indicators.filter((i) => i.id !== item.id);
+      store.indicators = store.indicators.filter((i) => i.id !== item.id && (i.code || "").toUpperCase().trim() !== cleanCode);
     } else {
-      const idx = store.indicators.findIndex((i) => i.id === item.id);
+      const idx = store.indicators.findIndex((i) => i.id === item.id || (i.code || "").toUpperCase().trim() === cleanCode);
       if (idx >= 0) store.indicators[idx] = { ...store.indicators[idx], ...item };
       else store.indicators.push(item);
-      store.indicators.sort((a, b) => (a.order_number || 0) - (b.order_number || 0));
     }
   } else if (type === "periods") {
-    if (item.status === "active" || action === "activate") {
+    if (action === "activate") {
       store.periods.forEach((p) => {
-        if (p.id !== item.id) p.status = "inactive";
+        if (p.id === item.id || (p.start_date === item.start_date && p.end_date === item.end_date)) {
+          p.status = "active";
+        } else {
+          p.status = "closed";
+        }
       });
-      item.status = "active";
-    }
-    if (action === "delete") {
+      const exists = store.periods.some((p) => p.id === item.id || (p.start_date === item.start_date && p.end_date === item.end_date));
+      if (!exists) {
+        store.periods.unshift({ ...item, status: "active" });
+      }
+    } else if (action === "delete") {
       store.periods = store.periods.filter((p) => p.id !== item.id);
     } else {
-      const idx = store.periods.findIndex((p) => p.id === item.id);
+      const idx = store.periods.findIndex((p) => p.id === item.id || (p.start_date === item.start_date && p.end_date === item.end_date));
       if (idx >= 0) store.periods[idx] = { ...store.periods[idx], ...item };
       else store.periods.unshift(item);
-      store.periods.sort((a, b) => b.start_date.localeCompare(a.start_date));
     }
   }
 
-  if (typeof window !== "undefined") {
-    try {
+  try {
+    if (typeof window !== "undefined") {
       localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(store));
-      window.dispatchEvent(new CustomEvent("mutabaah_master_store_updated", { detail: store }));
-    } catch (e) {}
+      window.dispatchEvent(new Event("mutabaah_master_store_updated"));
+    }
+  } catch (e) {
+    console.warn("Failed to write client master store", e);
   }
 
   return store;

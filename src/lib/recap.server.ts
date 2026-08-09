@@ -22,8 +22,8 @@ export async function listPeriods(supabase: DB): Promise<Period[]> {
   const storePeriods = getMasterStore().periods;
 
   const map = new Map<string, Period>();
-  storePeriods.forEach((p) => map.set(p.id, p));
-  dbPeriods.forEach((p) => map.set(p.id, p));
+  storePeriods.forEach((p) => map.set(`${p.start_date}::${p.end_date}`, p));
+  dbPeriods.forEach((p) => map.set(`${p.start_date}::${p.end_date}`, p));
 
   return Array.from(map.values()).sort((a, b) => b.start_date.localeCompare(a.start_date));
 }
@@ -46,8 +46,8 @@ export async function listIndicators(supabase: DB): Promise<IndicatorRow[]> {
   const storeIndicators = getMasterStore().indicators;
 
   const map = new Map<string, IndicatorRow>();
-  storeIndicators.forEach((i) => map.set(i.id, i));
-  dbIndicators.forEach((i) => map.set(i.id, i));
+  storeIndicators.forEach((i) => map.set(i.code.toUpperCase().trim(), i));
+  dbIndicators.forEach((i) => map.set(i.code.toUpperCase().trim(), i));
 
   return Array.from(map.values()).sort((a, b) => ((a as any).order_number || 0) - ((b as any).order_number || 0));
 }
@@ -91,13 +91,22 @@ export async function buildMentorRecap(
     .order("name");
 
   const store = getMasterStore();
-  const storeBinaanForMentor = store.binaan.filter((b) => b.mentor_id === mentorId && (b.status === "active" || !b.status));
+  const storeBinaanForMentor = store.binaan.filter(
+    (b) => b.mentor_id === mentorId && (b.status === "active" || !b.status),
+  );
 
+  // Deduplicate binaan strictly by normalized name for this mentor
   const binaanMap = new Map<string, any>();
-  storeBinaanForMentor.forEach((b) => binaanMap.set(b.id, b));
-  (binaanRows ?? []).forEach((b: any) => binaanMap.set(b.id, b));
+  storeBinaanForMentor.forEach((b) => {
+    const key = (b.name || "").toLowerCase().trim();
+    binaanMap.set(key, b);
+  });
+  (binaanRows ?? []).forEach((b: any) => {
+    const key = (b.name || "").toLowerCase().trim();
+    binaanMap.set(key, b);
+  });
 
-  const binaanList = Array.from(binaanMap.values());
+  const binaanList = Array.from(binaanMap.values()).sort((a, b) => a.name.localeCompare(b.name));
   const rows: RecapRow[] = [];
 
   if (period) {
@@ -107,7 +116,11 @@ export async function buildMentorRecap(
       .eq("mentor_id", mentorId)
       .eq("period_id", period.id);
 
-    const subByBinaan = new Map((submissions ?? []).map((s: any) => [s.binaan_id, s]));
+    const subByBinaan = new Map();
+    (submissions ?? []).forEach((s: any) => {
+      subByBinaan.set(s.binaan_id, s);
+    });
+
     for (const b of binaanList) {
       const sub: any = subByBinaan.get(b.id);
       const scores: Record<string, number> = {};
@@ -172,19 +185,27 @@ export async function buildMentorSummaries(
 
   const store = getMasterStore();
   const mentorMap = new Map<string, any>();
-  store.mentors.forEach((m) => mentorMap.set(m.id, m));
-  (mentorsRes ?? []).forEach((m: any) => mentorMap.set(m.id, m));
+  store.mentors.forEach((m) => mentorMap.set(m.name.toLowerCase().trim(), m));
+  (mentorsRes ?? []).forEach((m: any) => mentorMap.set(m.name.toLowerCase().trim(), m));
   const mentors = Array.from(mentorMap.values());
 
   const binaanMap = new Map<string, any>();
-  store.binaan.forEach((b) => binaanMap.set(b.id, b));
-  (binaanRes ?? []).forEach((b: any) => binaanMap.set(b.id, b));
+  store.binaan.forEach((b) => {
+    if (b.status === "active" || !b.status) {
+      binaanMap.set(`${(b.name || "").toLowerCase().trim()}::${b.mentor_id}`, b);
+    }
+  });
+  (binaanRes ?? []).forEach((b: any) => {
+    if (b.status === "active" || !b.status) {
+      binaanMap.set(`${(b.name || "").toLowerCase().trim()}::${b.mentor_id}`, b);
+    }
+  });
   const binaan = Array.from(binaanMap.values());
 
   const submissions = subs ?? [];
 
   return mentors.map((m: any) => {
-    const own = binaan.filter((b: any) => b.mentor_id === m.id && (b.status === "active" || !b.status));
+    const own = binaan.filter((b: any) => b.mentor_id === m.id);
     const weekSubs = submissions.filter(
       (s: any) => s.mentor_id === m.id && periodId && s.period_id === periodId,
     );
