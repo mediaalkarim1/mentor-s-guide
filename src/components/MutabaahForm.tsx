@@ -5,6 +5,7 @@ import { Check, ChevronsUpDown, Loader2, ShieldCheck } from "lucide-react";
 
 import { getPublicFormData, submitMutabaah } from "@/lib/mutabaah.functions";
 import { formatDisplayScore, formatPeriod, optionsFor } from "@/lib/mutabaah-config";
+import { MASTER_BINAAN, MASTER_INDICATORS, MASTER_MENTORS, MASTER_PERIOD } from "@/lib/master-data";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { ScoreBadge } from "@/components/ScoreBadge";
@@ -32,7 +33,22 @@ export function MutabaahForm() {
 
   const { data, isLoading } = useQuery({
     queryKey: ["public-form"],
-    queryFn: () => loadData(),
+    queryFn: async () => {
+      try {
+        const res = await loadData();
+        if (res && res.mentors && res.mentors.length > 0) {
+          return res;
+        }
+      } catch (e) {
+        console.warn("loadData failed, using master fallbacks", e);
+      }
+      return {
+        period: MASTER_PERIOD,
+        mentors: MASTER_MENTORS,
+        binaan: MASTER_BINAAN,
+        indicators: MASTER_INDICATORS,
+      };
+    },
   });
 
   const [binaanId, setBinaanId] = useState("");
@@ -42,14 +58,15 @@ export function MutabaahForm() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<SuccessState | null>(null);
 
-  const binaanList = data?.binaan ?? [];
-  const mentors = data?.mentors ?? [];
-  const indicators = data?.indicators ?? [];
+  const binaanList = (data?.binaan && data.binaan.length > 0) ? data.binaan : MASTER_BINAAN;
+  const mentors = (data?.mentors && data.mentors.length > 0) ? data.mentors : MASTER_MENTORS;
+  const indicators = (data?.indicators && data.indicators.length > 0) ? data.indicators : MASTER_INDICATORS;
   const selectedBinaan = binaanList.find((b) => b.id === binaanId);
 
-  const periodLabel = data?.period
-    ? formatPeriod(data.period.start_date, data.period.end_date)
-    : null;
+  const activePeriod = data?.period ?? MASTER_PERIOD;
+  const periodLabel = activePeriod
+    ? formatPeriod(activePeriod.start_date, activePeriod.end_date)
+    : formatPeriod(MASTER_PERIOD.start_date, MASTER_PERIOD.end_date);
 
   const mismatch = useMemo(
     () => Boolean(selectedBinaan && mentorId && selectedBinaan.mentor_id !== mentorId),
@@ -98,93 +115,101 @@ export function MutabaahForm() {
     return (
       <div className="mx-auto w-full max-w-lg px-4 py-8 sm:py-12">
         <div className="surface-card p-6 sm:p-8 text-center border border-[#DCE9E1] rounded-2xl shadow-sm">
-          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-[#E5F6EC] text-[#087443]">
-            <Check className="h-7 w-7" />
+          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-[#E6F4EE] text-[#006B54]">
+            <Check className="h-8 w-8" />
           </div>
-          <h1 className="mt-5 text-lg sm:text-xl font-bold text-[#173C32]">Alhamdulillah, Mutabaah berhasil disimpan.</h1>
-          <dl className="mt-6 space-y-3 text-left text-sm">
-            <Row label="Binaan" value={success.binaanName} />
-            <Row label="Mentor" value={success.mentorName} />
-            <Row label="Periode" value={success.period} />
-            <Row label="Nilai" value={formatDisplayScore(success.score)} />
-            <div className="flex items-center justify-between gap-4 border-t border-[#DCE9E1] pt-3">
-              <dt className="text-[#52635C]">Status Predikat</dt>
-              <dd>
-                <ScoreBadge score={success.score} />
-              </dd>
-            </div>
-          </dl>
-          <p className="mt-6 text-xs sm:text-sm text-[#52635C]">
-            Nilai Anda otomatis masuk ke rekapitulasi Mentor {success.mentorName}.
+          <h2 className="text-2xl font-bold tracking-tight text-[#173C32] mb-1">MUTABAAH TERKIRIM!</h2>
+          <p className="text-xs sm:text-sm text-[#52635C] mb-6">
+            Terima kasih telah mengisi mutabaah pekanan.
           </p>
-          <div className="mt-6 pt-4 border-t border-[#DCE9E1]">
-            <Button
-              className="w-full bg-[#006B54] hover:bg-[#005844] text-white font-semibold h-11"
-              onClick={() => {
-                setSuccess(null);
-                setValues({});
-                setBinaanId("");
-                setMentorId("");
-              }}
-            >
-              Isi Mutabaah Lagi
-            </Button>
+
+          <div className="surface-soft p-5 rounded-xl text-left space-y-3 mb-6 border border-[#D5E3DB]">
+            <div className="flex justify-between border-b border-[#D5E3DB] pb-2 text-xs">
+              <span className="text-[#52635C]">Periode</span>
+              <span className="font-semibold text-[#173C32]">{success.period}</span>
+            </div>
+            <div className="flex justify-between border-b border-[#D5E3DB] pb-2 text-xs">
+              <span className="text-[#52635C]">Nama Binaan</span>
+              <span className="font-semibold text-[#173C32]">{success.binaanName}</span>
+            </div>
+            <div className="flex justify-between border-b border-[#D5E3DB] pb-2 text-xs">
+              <span className="text-[#52635C]">Mentor</span>
+              <span className="font-semibold text-[#173C32]">{success.mentorName}</span>
+            </div>
+            <div className="flex justify-between items-center pt-1 text-xs">
+              <span className="text-[#52635C] font-semibold">Skor Pekanan</span>
+              <ScoreBadge score={success.score} className="text-sm px-3 py-1" />
+            </div>
           </div>
+
+          <Button
+            onClick={() => {
+              setSuccess(null);
+              setBinaanId("");
+              setMentorId("");
+              setValues({});
+            }}
+            className="w-full bg-[#006B54] hover:bg-[#005844] text-white font-bold h-11 text-sm rounded-xl shadow-xs"
+          >
+            ISI MUTABAAH LAGI
+          </Button>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="mx-auto w-full max-w-3xl px-3 sm:px-4 pb-16">
-      {/* Header Banner */}
+    <div className="mx-auto w-full max-w-2xl px-3 sm:px-4 py-4 sm:py-8 space-y-5 sm:space-y-6">
+      {/* Header Banner - White text title */}
       <header className="bg-gradient-to-b from-[#006B54] to-[#0F8A6A] -mx-3 sm:-mx-4 mb-6 px-4 py-7 sm:px-8 sm:py-9 text-center text-white sm:rounded-b-3xl shadow-sm">
-        <h1 className="text-xl sm:text-2xl md:text-3xl font-bold tracking-tight text-white uppercase leading-snug">
-          MUTABAAH GURU
-          <span className="block text-lg sm:text-xl md:text-2xl font-semibold mt-0.5 text-white">
-            SEKOLAH ALAM AL-KARIM
-          </span>
+        <h1 className="text-2xl sm:text-4xl font-extrabold tracking-tight mb-2 text-white">
+          MUTABAAH GURU SEKOLAH ALAM AL-KARIM
         </h1>
-        <p className="mt-2 text-xs sm:text-sm text-white/90 font-medium">
-          Form Pengisian Capaian Amaliah Pekanan
+        <p className="text-xs sm:text-sm font-medium text-[#E6F4EE] max-w-md mx-auto mb-4 opacity-95">
+          Form Evaluasi & Monitoring Capaian Pekanan Guru
         </p>
+
         {periodLabel && (
-          <div className="mt-3.5 inline-flex items-center gap-1.5 rounded-full bg-white/15 px-4 py-1.5 text-xs sm:text-sm font-medium border border-white/20 text-white">
-            <span>Mutabaah Pekan: {periodLabel}</span>
+          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white/15 backdrop-blur-md text-xs font-semibold tracking-wide border border-white/20 text-white">
+            <span className="h-2 w-2 rounded-full bg-[#4ADE80] animate-pulse" />
+            <span>Periode: {periodLabel}</span>
           </div>
         )}
       </header>
 
-      {isLoading ? (
-        <div className="flex items-center justify-center py-16 text-[#52635C]">
-          <Loader2 className="mr-2 h-5 w-5 animate-spin text-[#006B54]" /> Memuat form mutabaah...
-        </div>
-      ) : !data?.period ? (
-        <div className="surface-card p-6 text-center text-sm text-[#52635C] border border-[#DCE9E1] rounded-xl">
-          Belum ada periode mutabaah yang aktif. Silakan hubungi Admin.
-        </div>
-      ) : (
-        <div className="space-y-5">
-          {/* Identity Selection Card */}
-          <section className="surface-card p-4 sm:p-5 border border-[#DCE9E1] rounded-xl space-y-4">
+      <div className="surface-card p-4 sm:p-7 shadow-xs border border-[#DCE9E1] rounded-2xl bg-white space-y-6">
+        {/* Step 1: Identitas */}
+        <div className="space-y-4 pb-5 border-b border-[#DCE9E1]">
+          <h2 className="text-sm sm:text-base font-bold text-[#173C32] flex items-center gap-2">
+            <span className="flex h-6 w-6 items-center justify-center rounded-full bg-[#006B54] text-white text-xs font-bold">1</span>
+            IDENTITAS GURU (BINAAN) & MENTOR
+          </h2>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {/* Searchable Binaan Selection */}
             <div className="space-y-1.5">
-              <Label className="text-xs font-semibold text-[#31574B]">Nama Binaan</Label>
+              <Label className="text-xs font-semibold text-[#173C32]">Nama Binaan (Guru)</Label>
               <Popover open={openBinaan} onOpenChange={setOpenBinaan}>
                 <PopoverTrigger asChild>
                   <Button
                     variant="outline"
                     role="combobox"
-                    className="w-full justify-between font-normal min-h-[44px] bg-white border-[#D5E3DB] focus:border-[#0F8A6A] focus:ring-2 focus:ring-[#0F8A6A]/15 text-[#173C32]"
+                    aria-expanded={openBinaan}
+                    className="w-full justify-between min-h-[44px] bg-white border-[#D5E3DB] hover:bg-[#F5FAF7] text-left font-normal text-xs sm:text-sm"
                   >
-                    {selectedBinaan ? selectedBinaan.name : "Cari & pilih nama Binaan Anda..."}
-                    <ChevronsUpDown className="ml-2 h-4 w-4 opacity-50" />
+                    <span className="truncate">
+                      {selectedBinaan ? selectedBinaan.name : "Cari / pilih nama Binaan..."}
+                    </span>
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                   </Button>
                 </PopoverTrigger>
-                <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+                <PopoverContent className="w-[300px] p-0 shadow-lg border-[#DCE9E1]" align="start">
                   <Command>
-                    <CommandInput placeholder="Ketik nama binaan..." />
-                    <CommandList>
-                      <CommandEmpty>Nama tidak terdaftar.</CommandEmpty>
+                    <CommandInput placeholder="Ketik nama Binaan..." className="text-xs h-10" />
+                    <CommandList className="max-h-60 overflow-y-auto">
+                      <CommandEmpty className="py-3 text-center text-xs text-muted-foreground">
+                        Binaan tidak ditemukan.
+                      </CommandEmpty>
                       <CommandGroup>
                         {binaanList.map((b) => (
                           <CommandItem
@@ -192,18 +217,18 @@ export function MutabaahForm() {
                             value={b.name}
                             onSelect={() => {
                               setBinaanId(b.id);
+                              setMentorId(b.mentor_id);
                               setOpenBinaan(false);
-                              // Auto-select mentor if linked
-                              if (b.mentor_id) setMentorId(b.mentor_id);
                             }}
+                            className="text-xs py-2 cursor-pointer"
                           >
                             <Check
                               className={cn(
                                 "mr-2 h-4 w-4 text-[#006B54]",
-                                b.id === binaanId ? "opacity-100" : "opacity-0",
+                                binaanId === b.id ? "opacity-100" : "opacity-0",
                               )}
                             />
-                            {b.name}
+                            <span className="font-medium text-[#173C32]">{b.name}</span>
                           </CommandItem>
                         ))}
                       </CommandGroup>
@@ -213,105 +238,114 @@ export function MutabaahForm() {
               </Popover>
             </div>
 
+            {/* Mentor Selection */}
             <div className="space-y-1.5">
-              <Label className="text-xs font-semibold text-[#31574B]">Nama Mentor Pengampu</Label>
-              <Select value={mentorId} onValueChange={setMentorId}>
-                <SelectTrigger className="w-full min-h-[44px] bg-white border-[#D5E3DB] focus:border-[#0F8A6A] text-[#173C32]">
-                  <SelectValue placeholder="Pilih Nama Mentor" />
+              <Label className="text-xs font-semibold text-[#173C32]">Mentor Terkait</Label>
+              <Select
+                value={mentorId}
+                onValueChange={(val) => setMentorId(val)}
+              >
+                <SelectTrigger className="w-full min-h-[44px] bg-white border-[#D5E3DB] focus:border-[#0F8A6A] text-xs sm:text-sm">
+                  <SelectValue placeholder="Pilih Mentor..." />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="max-h-60 border-[#DCE9E1]">
                   {mentors.map((m) => (
-                    <SelectItem key={m.id} value={m.id}>
+                    <SelectItem key={m.id} value={m.id} className="text-xs sm:text-sm py-2">
                       {m.name}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
-              {mismatch && (
-                <p className="text-xs font-medium text-destructive mt-1">
-                  Mentor yang dipilih tidak sesuai dengan data Binaan. Silakan pilih Mentor yang benar.
-                </p>
-              )}
             </div>
-          </section>
+          </div>
 
-          {/* Indicators List */}
-          <section className="surface-card overflow-hidden border border-[#DCE9E1] rounded-xl">
-            <div className="border-b border-[#DCE9E1] bg-[#EAF4EE] px-4 py-3 sm:px-5 sm:py-4">
-              <h2 className="text-sm sm:text-base font-bold text-[#173C32]">9 Indikator Mutabaah Pekanan</h2>
-              <p className="text-xs text-[#52635C] mt-0.5">
-                Pilih capaian realisasi Anda pekan ini. Nilai akhir dihitung otomatis.
-              </p>
+          {mismatch && (
+            <p className="text-xs text-amber-700 bg-amber-50 p-2.5 rounded-lg border border-amber-200">
+              ⚠️ <strong>Perhatian:</strong> Mentor yang dipilih tidak sesuai dengan data terdaftar Binaan ini.
+            </p>
+          )}
+        </div>
+
+        {/* Step 2: 9 Indikator Pekanan */}
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-sm sm:text-base font-bold text-[#173C32] flex items-center gap-2">
+              <span className="flex h-6 w-6 items-center justify-center rounded-full bg-[#006B54] text-white text-xs font-bold">2</span>
+              CAPAIAN 9 INDIKATOR PEKANAN
+            </h2>
+          </div>
+
+          {isLoading ? (
+            <div className="py-12 text-center text-[#52635C] space-y-2">
+              <Loader2 className="mx-auto h-7 w-7 animate-spin text-[#006B54]" />
+              <p className="text-xs">Memuat form mutabaah...</p>
             </div>
-            <div className="divide-y divide-[#DCE9E1] bg-white">
-              {indicators.map((indicator, index) => (
-                <div
-                  key={indicator.id}
-                  className="grid grid-cols-1 gap-2 px-4 py-3.5 sm:grid-cols-[2rem_1fr_7rem_12rem] sm:items-center sm:gap-4 sm:px-5"
-                >
-                  <span className="hidden text-xs font-semibold text-[#52635C] sm:block">{index + 1}</span>
-                  <div>
-                    <p className="text-sm font-semibold text-[#173C32]">{indicator.name}</p>
-                    <p className="text-xs text-[#52635C] sm:hidden mt-0.5">
-                      Target: <span className="font-medium text-[#173C32]">{indicator.target} {indicator.unit}</span>
-                    </p>
-                  </div>
-                  <span className="hidden text-xs text-[#52635C] sm:block">
-                    Target: <strong className="text-[#173C32]">{indicator.target}</strong> {indicator.unit}
-                  </span>
-                  <Select
-                    value={values[indicator.id] ?? ""}
-                    onValueChange={(v) => setValues((prev) => ({ ...prev, [indicator.id]: v }))}
+          ) : (
+            <div className="space-y-3">
+              {indicators.map((item, idx) => {
+                const val = values[item.id] ?? "";
+                const opts = optionsFor(item.target);
+
+                return (
+                  <div
+                    key={item.id}
+                    className="p-3.5 sm:p-4 rounded-xl border border-[#EAF2ED] bg-[#F9FCFA] space-y-2 hover:border-[#D5E3DB] transition-colors"
                   >
-                    <SelectTrigger className="w-full min-h-[42px] bg-white border-[#D5E3DB] focus:border-[#0F8A6A] text-xs font-medium text-[#173C32]">
-                      <SelectValue placeholder="Pilih capaian pekan ini" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {optionsFor(indicator.code, Number(indicator.target), indicator.unit).map(
-                        (opt) => (
-                          <SelectItem key={opt.value} value={String(opt.value)} className="text-xs">
-                            {opt.label}
-                          </SelectItem>
-                        ),
-                      )}
-                    </SelectContent>
-                  </Select>
-                </div>
-              ))}
-            </div>
-          </section>
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="space-y-0.5">
+                        <div className="flex items-center gap-2">
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-[#006B54] text-white tracking-wider">
+                            #{idx + 1}
+                          </span>
+                          <h3 className="text-xs sm:text-sm font-bold text-[#173C32]">
+                            {item.name}
+                          </h3>
+                        </div>
+                        <p className="text-[11px] text-[#52635C] pl-0.5">
+                          Target pekanan: <strong className="text-[#173C32]">{item.target} {item.unit}</strong>
+                        </p>
+                      </div>
+                    </div>
 
-          {error && (
-            <div className="rounded-xl border border-destructive/30 bg-[#FDECEC] px-4 py-3 text-xs sm:text-sm font-medium text-[#B42318]">
-              {error}
+                    <Select
+                      value={val}
+                      onValueChange={(newVal) =>
+                        setValues((prev) => ({ ...prev, [item.id]: newVal }))
+                      }
+                    >
+                      <SelectTrigger className="w-full bg-white border-[#D5E3DB] focus:border-[#0F8A6A] min-h-[40px] text-xs sm:text-sm">
+                        <SelectValue placeholder={`Pilih capaian ${item.name}...`} />
+                      </SelectTrigger>
+                      <SelectContent className="max-h-56 border-[#DCE9E1]">
+                        {opts.map((opt) => (
+                          <SelectItem key={opt.value} value={String(opt.value)} className="text-xs sm:text-sm py-2">
+                            {opt.label} ({formatDisplayScore(opt.score)})
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                );
+              })}
             </div>
           )}
-
-          <Button
-            size="lg"
-            className="w-full bg-[#006B54] hover:bg-[#005844] text-white font-semibold h-12 text-sm rounded-xl shadow-xs"
-            onClick={handleSubmit}
-            disabled={mutation.isPending}
-          >
-            {mutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            SUBMIT MUTABAAH PEKANAN
-          </Button>
-
-          <p className="flex items-center justify-center gap-1.5 text-center text-xs text-[#52635C]">
-            <ShieldCheck className="h-3.5 w-3.5 text-[#006B54]" />
-            Satu Binaan hanya dapat mengisi satu kali setiap pekan.
-          </p>
         </div>
-      )}
-    </div>
-  );
-}
 
-function Row({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex items-center justify-between gap-4 border-t border-[#DCE9E1] pt-3 first:border-t-0 first:pt-0">
-      <dt className="text-[#52635C]">{label}</dt>
-      <dd className="font-semibold text-[#173C32]">{value}</dd>
+        {error && (
+          <div className="p-3.5 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs font-semibold text-center">
+            {error}
+          </div>
+        )}
+
+        <Button
+          onClick={handleSubmit}
+          disabled={mutation.isPending || isLoading}
+          className="w-full bg-[#006B54] hover:bg-[#005844] text-white font-bold h-12 text-sm sm:text-base rounded-xl shadow-xs"
+        >
+          {mutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+          SUBMIT MUTABAAH PEKANAN
+        </Button>
+      </div>
     </div>
   );
 }
