@@ -6,6 +6,8 @@ export type AuthContextType = {
   loading: boolean;
   user: User | null;
   session: Session | null;
+  isAdmin: boolean;
+  mentor: { id: string; name: string } | null;
   signOut: () => Promise<void>;
 };
 
@@ -13,6 +15,8 @@ const AuthContext = createContext<AuthContextType>({
   loading: true,
   user: null,
   session: null,
+  isAdmin: false,
+  mentor: null,
   signOut: async () => {},
 });
 
@@ -20,35 +24,42 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [mentor, setMentor] = useState<{ id: string; name: string } | null>(null);
 
   useEffect(() => {
     let isMounted = true;
 
+    async function handleSession(currentSession: Session | null) {
+      if (!isMounted) return;
+      setSession(currentSession);
+      setUser(currentSession?.user ?? null);
+
+      if (currentSession?.user) {
+        const email = currentSession.user.email?.toLowerCase() ?? "";
+        const isAdminEmail = email.includes("admin") || email === "admin@mutabaah.sch.id";
+        setIsAdmin(isAdminEmail);
+      } else {
+        setIsAdmin(false);
+        setMentor(null);
+      }
+      setLoading(false);
+    }
+
     async function initAuth() {
       try {
         const { data } = await supabase.auth.getSession();
-        if (isMounted) {
-          setSession(data.session ?? null);
-          setUser(data.session?.user ?? null);
-        }
+        await handleSession(data.session ?? null);
       } catch (err) {
         console.error("AuthProvider initAuth error:", err);
-      } finally {
-        if (isMounted) {
-          setLoading(false);
-        }
+        if (isMounted) setLoading(false);
       }
     }
 
     initAuth();
 
     const { data: authListener } = supabase.auth.onAuthStateChange((_event, newSession) => {
-      if (isMounted) {
-        console.log("[Auth] AuthStateChange event:", _event, "User:", newSession?.user?.email);
-        setSession(newSession ?? null);
-        setUser(newSession?.user ?? null);
-        setLoading(false);
-      }
+      handleSession(newSession ?? null);
     });
 
     return () => {
@@ -60,11 +71,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   async function signOut() {
     setUser(null);
     setSession(null);
+    setIsAdmin(false);
+    setMentor(null);
     await supabase.auth.signOut();
   }
 
   return (
-    <AuthContext.Provider value={{ loading, user, session, signOut }}>
+    <AuthContext.Provider value={{ loading, user, session, isAdmin, mentor, signOut }}>
       {children}
     </AuthContext.Provider>
   );
