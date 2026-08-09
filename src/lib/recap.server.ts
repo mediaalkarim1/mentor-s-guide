@@ -5,7 +5,7 @@ import {
   MASTER_MENTORS,
   MASTER_BINAAN,
   MASTER_INDICATORS,
-  MASTER_PERIOD,
+  MASTER_PERIODS,
 } from "./master-data";
 
 type DB = SupabaseClient<any, "public", any>;
@@ -17,7 +17,7 @@ export async function listPeriods(supabase: DB): Promise<Period[]> {
     .from("mutabaah_periods")
     .select("id, start_date, end_date, status")
     .order("start_date", { ascending: false });
-  return (data && data.length > 0) ? (data as Period[]) : [{ ...MASTER_PERIOD, status: "active" }];
+  return (data && data.length > 0) ? (data as Period[]) : MASTER_PERIODS;
 }
 
 export async function resolvePeriod(supabase: DB, periodId?: string): Promise<Period | null> {

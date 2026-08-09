@@ -165,8 +165,25 @@ export const MASTER_INDICATORS: MasterIndicator[] = [
   { id: 'c1000000-0000-0000-0000-000000000009', code: 'infak', name: 'Infak Pekanan', target: 3, unit: 'kali', order_number: 9 },
 ];
 
-export const MASTER_PERIOD = {
-  id: 'd1000000-0000-0000-0000-000000000001',
-  start_date: '2026-08-04',
-  end_date: '2026-08-10',
-};
+export const MASTER_PERIODS = [
+  {
+    id: 'd1000000-0000-0000-0000-000000000001',
+    start_date: '2026-08-04',
+    end_date: '2026-08-10',
+    status: 'active',
+  },
+  {
+    id: 'd1000000-0000-0000-0000-000000000002',
+    start_date: '2026-07-28',
+    end_date: '2026-08-03',
+    status: 'closed',
+  },
+  {
+    id: 'd1000000-0000-0000-0000-000000000003',
+    start_date: '2026-07-21',
+    end_date: '2026-07-27',
+    status: 'closed',
+  },
+];
+
+export const MASTER_PERIOD = MASTER_PERIODS[0];
