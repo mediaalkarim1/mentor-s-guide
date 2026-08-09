@@ -17,6 +17,7 @@ import {
 } from "@/lib/admin.functions";
 import {
   getAdminDashboard,
+  getMentorHistory,
   resetMentorRecap,
   saveMentorRecapOverride,
 } from "@/lib/recap.functions";
@@ -70,13 +71,24 @@ function AdminPage() {
   const fetchData = useServerFn(getAdminData);
   const saveOverrideFn = useServerFn(saveMentorRecapOverride);
   const resetRecapFn = useServerFn(resetMentorRecap);
+  const fetchHistory = useServerFn(getMentorHistory);
+
+  const [selectedPeriodId, setSelectedPeriodId] = useState<string | undefined>(undefined);
+  const [viewMode, setViewMode] = useState<"pekanan" | "bulanan" | "riwayat">("pekanan");
+  const [viewingMentorHistory, setViewingMentorHistory] = useState<{ mentorId: string; mentorName: string } | null>(null);
 
   const dashboard = useQuery({
-    queryKey: ["admin-dashboard"],
-    queryFn: () => fetchDashboard({ data: {} }),
+    queryKey: ["admin-dashboard", selectedPeriodId],
+    queryFn: () => fetchDashboard({ data: selectedPeriodId ? { periodId: selectedPeriodId } : {} }),
     retry: false,
   });
   const master = useQuery({ queryKey: ["admin-data"], queryFn: () => fetchData() });
+
+  const historyQuery = useQuery({
+    queryKey: ["mentor-history", viewingMentorHistory?.mentorId],
+    queryFn: () => fetchHistory({ data: { mentorId: viewingMentorHistory!.mentorId } }),
+    enabled: Boolean(viewingMentorHistory?.mentorId),
+  });
 
   // Recap Edit & Reset States
   const [editingRecap, setEditingRecap] = useState<any | null>(null);
@@ -160,7 +172,7 @@ function AdminPage() {
         <p className="text-sm text-muted-foreground">
           {d.period
             ? `Periode aktif ${formatPeriod(d.period.start_date, d.period.end_date)}`
-            : "Belum ada periode"}
+            : "Belum ada periode aktif"}
         </p>
       </div>
 
@@ -173,16 +185,89 @@ function AdminPage() {
       </div>
 
       <div className="surface-card overflow-x-auto">
-        <h2 className="border-b border-border px-4 py-3 text-base font-semibold">Rekap Mentor</h2>
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-4 py-3">
+          <div>
+            <h2 className="text-base font-semibold">Rekap Mentor</h2>
+            <p className="text-xs text-muted-foreground">
+              {selectedPeriodId && d.periods.find((p) => p.id === selectedPeriodId)
+                ? `Menampilkan Periode ${formatPeriod(
+                    d.periods.find((p) => p.id === selectedPeriodId)!.start_date,
+                    d.periods.find((p) => p.id === selectedPeriodId)!.end_date,
+                  )}`
+                : "Menampilkan Periode Aktif Berjalan"}
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="flex items-center rounded-md border border-border bg-secondary/30 p-0.5 text-xs">
+              <button
+                type="button"
+                className={`px-2.5 py-1 rounded font-medium transition-colors ${
+                  viewMode === "pekanan" ? "bg-background text-foreground shadow-xs" : "text-muted-foreground hover:text-foreground"
+                }`}
+                onClick={() => setViewMode("pekanan")}
+              >
+                Rekap Pekanan
+              </button>
+              <button
+                type="button"
+                className={`px-2.5 py-1 rounded font-medium transition-colors ${
+                  viewMode === "bulanan" ? "bg-background text-foreground shadow-xs" : "text-muted-foreground hover:text-foreground"
+                }`}
+                onClick={() => setViewMode("bulanan")}
+              >
+                Rekap Bulanan
+              </button>
+              <button
+                type="button"
+                className={`px-2.5 py-1 rounded font-medium transition-colors ${
+                  viewMode === "riwayat" ? "bg-background text-foreground shadow-xs" : "text-muted-foreground hover:text-foreground"
+                }`}
+                onClick={() => setViewMode("riwayat")}
+              >
+                Riwayat
+              </button>
+            </div>
+
+            <Select value={selectedPeriodId ?? d.period?.id ?? ""} onValueChange={(v) => setSelectedPeriodId(v)}>
+              <SelectTrigger className="w-56 h-8 text-xs">
+                <SelectValue placeholder="Pilih Periode" />
+              </SelectTrigger>
+              <SelectContent>
+                {d.periods.map((p) => (
+                  <SelectItem key={p.id} value={p.id}>
+                    {formatPeriod(p.start_date, p.end_date)}
+                    {p.status === "active" ? " (Aktif)" : p.status === "closed" ? " (Selesai)" : " (Nonaktif)"}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+
         <table className="w-full min-w-[50rem] text-sm">
           <thead className="bg-secondary/60 text-left text-xs uppercase tracking-wide text-muted-foreground">
             <tr>
               <th className="px-4 py-3">Mentor</th>
               <th className="px-4 py-3 text-center">Binaan</th>
-              <th className="px-4 py-3 text-center">Sudah</th>
-              <th className="px-4 py-3 text-center">Belum</th>
-              <th className="px-4 py-3 text-center">Pekanan</th>
-              <th className="px-4 py-3 text-center">Bulanan</th>
+              {viewMode === "pekanan" && (
+                <>
+                  <th className="px-4 py-3 text-center">Sudah</th>
+                  <th className="px-4 py-3 text-center">Belum</th>
+                  <th className="px-4 py-3 text-center">Pekanan</th>
+                  <th className="px-4 py-3 text-center">Bulanan</th>
+                </>
+              )}
+              {viewMode === "bulanan" && (
+                <>
+                  <th className="px-4 py-3 text-center">Rata-rata Bulanan</th>
+                </>
+              )}
+              {viewMode === "riwayat" && (
+                <>
+                  <th className="px-4 py-3 text-center">Nilai Pekan Ini</th>
+                  <th className="px-4 py-3 text-center">Rata-rata Bulanan</th>
+                </>
+              )}
               <th className="px-4 py-3">Status</th>
               <th className="px-4 py-3 text-center">Aksi</th>
             </tr>
@@ -190,30 +275,57 @@ function AdminPage() {
           <tbody className="divide-y divide-border">
             {d.summaries.map((s) => (
               <tr key={s.mentorId} className="hover:bg-secondary/40">
-                <td className="px-4 py-3 font-medium">{s.mentorName}</td>
+                <td className="px-4 py-3 font-medium">
+                  <button
+                    type="button"
+                    onClick={() => setViewingMentorHistory({ mentorId: s.mentorId, mentorName: s.mentorName })}
+                    className="text-primary hover:underline font-semibold text-left cursor-pointer"
+                  >
+                    {s.mentorName}
+                  </button>
+                </td>
                 <td className="px-4 py-3 text-center tabular-nums">{s.binaanCount}</td>
-                <td className="px-4 py-3 text-center tabular-nums">{s.filled}</td>
-                <td className="px-4 py-3 text-center tabular-nums">{s.missing}</td>
-                <td className="px-4 py-3 text-center tabular-nums">
-                  <div className="font-semibold">{s.weeklyScore}</div>
-                  <div className="text-[10px] leading-none mt-0.5 font-normal">
-                    {s.isOverride ? (
-                      <span className="text-amber-600 font-medium dark:text-amber-400">Manual Admin</span>
-                    ) : (
-                      <span className="text-emerald-600 dark:text-emerald-400">Otomatis</span>
-                    )}
-                  </div>
-                </td>
-                <td className="px-4 py-3 text-center tabular-nums">
-                  <div>{s.monthlyScore}</div>
-                  <div className="text-[10px] leading-none mt-0.5 font-normal">
-                    {s.isOverride ? (
-                      <span className="text-amber-600 font-medium dark:text-amber-400">Manual Admin</span>
-                    ) : (
-                      <span className="text-emerald-600 dark:text-emerald-400">Otomatis</span>
-                    )}
-                  </div>
-                </td>
+
+                {viewMode === "pekanan" && (
+                  <>
+                    <td className="px-4 py-3 text-center tabular-nums">{s.filled}</td>
+                    <td className="px-4 py-3 text-center tabular-nums">{s.missing}</td>
+                    <td className="px-4 py-3 text-center tabular-nums">
+                      <div className="font-semibold">{s.weeklyScore}</div>
+                      <div className="text-[10px] leading-none mt-0.5 font-normal">
+                        {s.isOverride ? (
+                          <span className="text-amber-600 font-medium dark:text-amber-400">Manual Admin</span>
+                        ) : (
+                          <span className="text-emerald-600 dark:text-emerald-400">Otomatis</span>
+                        )}
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 text-center tabular-nums">
+                      <div>{s.monthlyScore}</div>
+                      <div className="text-[10px] leading-none mt-0.5 font-normal">
+                        {s.isOverride ? (
+                          <span className="text-amber-600 font-medium dark:text-amber-400">Manual Admin</span>
+                        ) : (
+                          <span className="text-emerald-600 dark:text-emerald-400">Otomatis</span>
+                        )}
+                      </div>
+                    </td>
+                  </>
+                )}
+
+                {viewMode === "bulanan" && (
+                  <td className="px-4 py-3 text-center font-bold text-base tabular-nums">
+                    {s.monthlyScore}
+                  </td>
+                )}
+
+                {viewMode === "riwayat" && (
+                  <>
+                    <td className="px-4 py-3 text-center font-semibold tabular-nums">{s.weeklyScore}</td>
+                    <td className="px-4 py-3 text-center font-semibold tabular-nums">{s.monthlyScore}</td>
+                  </>
+                )}
+
                 <td className="px-4 py-3">
                   <ScoreBadge score={s.weeklyScore} />
                 </td>
@@ -271,6 +383,88 @@ function AdminPage() {
         </TabsContent>
       </Tabs>
 
+      {/* Mentor History Dialog */}
+      <Dialog
+        open={viewingMentorHistory !== null}
+        onOpenChange={(open) => !open && setViewingMentorHistory(null)}
+      >
+        <DialogContent className="sm:max-w-[32rem]">
+          <DialogHeader>
+            <DialogTitle>RIWAYAT MUTABAAH: {viewingMentorHistory?.mentorName}</DialogTitle>
+          </DialogHeader>
+          <div className="py-2 space-y-3">
+            {historyQuery.isLoading ? (
+              <div className="flex items-center justify-center py-8 text-xs text-muted-foreground">
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Memuat riwayat periode...
+              </div>
+            ) : (
+              <div className="overflow-x-auto border border-border rounded-md">
+                <table className="w-full text-left text-sm">
+                  <thead className="border-b border-border bg-secondary/40 text-xs font-semibold uppercase text-muted-foreground">
+                    <tr>
+                      <th className="px-3 py-2">Periode</th>
+                      <th className="px-3 py-2 text-center">Status Periode</th>
+                      <th className="px-3 py-2 text-center">Nilai Pekanan</th>
+                      <th className="px-3 py-2">Predikat</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border text-xs">
+                    {(historyQuery.data?.history ?? []).map((h) => (
+                      <tr key={h.periodId} className="hover:bg-secondary/20">
+                        <td className="px-3 py-2 font-medium">
+                          {formatPeriod(h.startDate, h.endDate)}
+                        </td>
+                        <td className="px-3 py-2 text-center">
+                          <Badge
+                            variant={
+                              h.status === "active"
+                                ? "default"
+                                : h.status === "closed"
+                                ? "secondary"
+                                : "outline"
+                            }
+                            className="text-[10px]"
+                          >
+                            {h.status === "active"
+                              ? "Aktif"
+                              : h.status === "closed"
+                              ? "Selesai"
+                              : "Nonaktif"}
+                          </Badge>
+                        </td>
+                        <td className="px-3 py-2 text-center tabular-nums font-semibold">
+                          <div>{h.score}</div>
+                          {h.isOverride && (
+                            <div className="text-[9px] text-amber-600 dark:text-amber-400 font-normal">
+                              Manual Admin
+                            </div>
+                          )}
+                        </td>
+                        <td className="px-3 py-2">
+                          <ScoreBadge score={h.score} />
+                        </td>
+                      </tr>
+                    ))}
+                    {(historyQuery.data?.history ?? []).length === 0 && (
+                      <tr>
+                        <td colSpan={4} className="px-3 py-6 text-center text-muted-foreground text-xs">
+                          Belum ada riwayat periode.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setViewingMentorHistory(null)}>
+              Tutup
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Edit Rekap Mentor Dialog */}
       <Dialog open={editingRecap !== null} onOpenChange={(open) => !open && setEditingRecap(null)}>
         <DialogContent className="sm:max-w-[28rem]">
@@ -285,6 +479,7 @@ function AdminPage() {
                 if (!editingRecap) return;
                 saveOverrideMut.mutate({
                   mentorId: editingRecap.mentorId,
+                  periodId: selectedPeriodId ?? d.period?.id,
                   isOverride: editOverrideMode === "override",
                   manualWeeklyScore: Number(editWeeklyScore) || 0,
                   manualMonthlyScore: Number(editMonthlyScore) || 0,
@@ -398,8 +593,8 @@ function AdminPage() {
                       onChange={() => setResetScope("weekly")}
                     />
                     <div>
-                      <p className="font-medium">Reset Mingguan (Pekan Ini)</p>
-                      <p className="text-[11px] text-muted-foreground">Mengembalikan nilai pekanan ke otomatis / 0 untuk pekan ini saja.</p>
+                      <p className="font-medium">Reset Mingguan (Pekan Terpilih)</p>
+                      <p className="text-[11px] text-muted-foreground">Mengembalikan nilai pekanan ke otomatis / 0 untuk pekan terpilih saja.</p>
                     </div>
                   </label>
                   <label className="flex items-center gap-2 cursor-pointer p-2 border border-border rounded-md hover:bg-secondary/40">
@@ -449,7 +644,7 @@ function AdminPage() {
                       resetRecapMut.mutate({
                         mentorId: resettingRecap.mentorId,
                         scope: resetScope,
-                        periodId: d.period?.id,
+                        periodId: selectedPeriodId ?? d.period?.id,
                       });
                     }
                   }}
@@ -485,7 +680,7 @@ function AdminPage() {
                 resetRecapMut.mutate({
                   mentorId: resettingRecap.mentorId,
                   scope: "all",
-                  periodId: d.period?.id,
+                  periodId: selectedPeriodId ?? d.period?.id,
                 });
               }}
             >
@@ -1228,81 +1423,239 @@ function PeriodSection({ rows }: { rows: any[] }) {
   const [end, setEnd] = useState("");
   const [status, setStatus] = useState("active");
 
-  return (
-    <div className="grid gap-4 md:grid-cols-[20rem_1fr]">
-      <Panel title="Tambah Periode Pekanan">
-        <form
-          className="space-y-3"
-          onSubmit={(e) => {
-            e.preventDefault();
-            save.mutate({ start_date: start, end_date: end, status });
-            setStart("");
-            setEnd("");
-          }}
-        >
-          <div className="space-y-1.5">
-            <Label htmlFor="p-start">Tanggal Mulai</Label>
-            <Input
-              id="p-start"
-              type="date"
-              required
-              value={start}
-              onChange={(e) => setStart(e.target.value)}
-            />
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="p-end">Tanggal Selesai</Label>
-            <Input
-              id="p-end"
-              type="date"
-              required
-              value={end}
-              onChange={(e) => setEnd(e.target.value)}
-            />
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="p-status">Status</Label>
-            <Select value={status} onValueChange={(val: any) => setStatus(val)}>
-              <SelectTrigger id="p-status">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="active">Aktif (Pekan Berjalan)</SelectItem>
-                <SelectItem value="closed">Ditutup</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <Button type="submit" disabled={save.isPending} className="w-full">
-            {save.isPending && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />}
-            Simpan Periode
-          </Button>
-        </form>
-      </Panel>
+  const [editingPeriod, setEditingPeriod] = useState<any | null>(null);
+  const [editStart, setEditStart] = useState("");
+  const [editEnd, setEditEnd] = useState("");
+  const [editStatus, setEditStatus] = useState("active");
 
-      <Panel title="Daftar Periode Pekanan">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm">
-            <thead className="border-b border-border bg-secondary/40 text-xs font-semibold uppercase text-muted-foreground">
-              <tr>
-                <th className="px-3 py-2">Rentang Tanggal</th>
-                <th className="px-3 py-2">Status</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border">
-              {rows.map((row) => (
-                <tr key={row.id}>
-                  <td className="px-3 py-2 font-medium">{formatPeriod(row.start_date, row.end_date)}</td>
-                  <td className="px-3 py-2">
-                    <Badge variant={row.status === "active" ? "default" : "secondary"}>
-                      {row.status === "active" ? "Aktif" : "Ditutup"}
-                    </Badge>
-                  </td>
+  const [activatingPeriod, setActivatingPeriod] = useState<any | null>(null);
+  const activePeriod = rows.find((r) => r.status === "active");
+
+  const openEditModal = (p: any) => {
+    setEditingPeriod(p);
+    setEditStart(p.start_date);
+    setEditEnd(p.end_date);
+    setEditStatus(p.status);
+  };
+
+  const handleActivateClick = (p: any) => {
+    if (activePeriod && activePeriod.id !== p.id) {
+      setActivatingPeriod(p);
+    } else {
+      save.mutate({ id: p.id, start_date: p.start_date, end_date: p.end_date, status: "active" });
+    }
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="grid gap-4 md:grid-cols-[20rem_1fr]">
+        <Panel title="Tambah Periode Pekanan">
+          <form
+            className="space-y-3"
+            onSubmit={(e) => {
+              e.preventDefault();
+              save.mutate({ start_date: start, end_date: end, status });
+              setStart("");
+              setEnd("");
+            }}
+          >
+            <div className="space-y-1.5">
+              <Label htmlFor="p-start">Tanggal Mulai</Label>
+              <Input
+                id="p-start"
+                type="date"
+                required
+                value={start}
+                onChange={(e) => setStart(e.target.value)}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="p-end">Tanggal Selesai</Label>
+              <Input
+                id="p-end"
+                type="date"
+                required
+                value={end}
+                onChange={(e) => setEnd(e.target.value)}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="p-status">Status Periode</Label>
+              <Select value={status} onValueChange={(val: any) => setStatus(val)}>
+                <SelectTrigger id="p-status">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="active">AKTIF (Pekan Berjalan)</SelectItem>
+                  <SelectItem value="inactive">NONAKTIF</SelectItem>
+                  <SelectItem value="closed">SELESAI (Ditutup)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <Button type="submit" disabled={save.isPending} className="w-full">
+              {save.isPending && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />}
+              Simpan Periode Baru
+            </Button>
+          </form>
+        </Panel>
+
+        <Panel title="Daftar Periode Pekanan Master">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm">
+              <thead className="border-b border-border bg-secondary/40 text-xs font-semibold uppercase text-muted-foreground">
+                <tr>
+                  <th className="px-3 py-2">Rentang Tanggal</th>
+                  <th className="px-3 py-2">Status</th>
+                  <th className="px-3 py-2 text-right">Aksi</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </Panel>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {rows.map((row) => (
+                  <tr key={row.id} className="hover:bg-secondary/20">
+                    <td className="px-3 py-2 font-medium">{formatPeriod(row.start_date, row.end_date)}</td>
+                    <td className="px-3 py-2">
+                      <Badge
+                        variant={
+                          row.status === "active"
+                            ? "default"
+                            : row.status === "closed"
+                            ? "secondary"
+                            : "outline"
+                        }
+                        className="text-xs"
+                      >
+                        {row.status === "active"
+                          ? "AKTIF"
+                          : row.status === "closed"
+                          ? "SELESAI"
+                          : "NONAKTIF"}
+                      </Badge>
+                    </td>
+                    <td className="px-3 py-2 text-right space-x-1 whitespace-nowrap">
+                      {row.status !== "active" && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-7 px-2 text-xs text-emerald-600 hover:text-emerald-700 border-emerald-300 dark:text-emerald-400"
+                          onClick={() => handleActivateClick(row)}
+                        >
+                          Aktifkan
+                        </Button>
+                      )}
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 px-2 text-xs"
+                        onClick={() => openEditModal(row)}
+                      >
+                        Edit
+                      </Button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </Panel>
+      </div>
+
+      {/* Edit Periode Dialog */}
+      <Dialog open={editingPeriod !== null} onOpenChange={(open) => !open && setEditingPeriod(null)}>
+        <DialogContent className="sm:max-w-[28rem]">
+          <DialogHeader>
+            <DialogTitle>Edit Periode Pekanan</DialogTitle>
+          </DialogHeader>
+          <form
+            className="space-y-3 py-2 text-sm"
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (!editingPeriod) return;
+              save.mutate({
+                id: editingPeriod.id,
+                start_date: editStart,
+                end_date: editEnd,
+                status: editStatus,
+              });
+              setEditingPeriod(null);
+            }}
+          >
+            <div className="space-y-1.5">
+              <Label htmlFor="p-edit-start">Tanggal Mulai</Label>
+              <Input
+                id="p-edit-start"
+                type="date"
+                required
+                value={editStart}
+                onChange={(e) => setEditStart(e.target.value)}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="p-edit-end">Tanggal Selesai</Label>
+              <Input
+                id="p-edit-end"
+                type="date"
+                required
+                value={editEnd}
+                onChange={(e) => setEditEnd(e.target.value)}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="p-edit-status">Status</Label>
+              <Select value={editStatus} onValueChange={(val: any) => setEditStatus(val)}>
+                <SelectTrigger id="p-edit-status">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="active">AKTIF (Pekan Berjalan)</SelectItem>
+                  <SelectItem value="inactive">NONAKTIF</SelectItem>
+                  <SelectItem value="closed">SELESAI (Ditutup)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <DialogFooter className="pt-2">
+              <Button type="button" variant="outline" onClick={() => setEditingPeriod(null)}>
+                Batal
+              </Button>
+              <Button type="submit" disabled={save.isPending}>
+                {save.isPending && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />}
+                Simpan Perubahan
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Confirmation for Single Active Period */}
+      <AlertDialog open={activatingPeriod !== null} onOpenChange={(open) => !open && setActivatingPeriod(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Konfirmasi Aktivasi Periode</AlertDialogTitle>
+            <AlertDialogDescription>
+              Periode <strong className="text-foreground">{activePeriod ? formatPeriod(activePeriod.start_date, activePeriod.end_date) : ""}</strong> saat ini sedang AKTIF.
+              <br /><br />
+              Apakah Anda ingin menonaktifkan periode tersebut dan mengaktifkan periode{" "}
+              <strong className="text-foreground">{activatingPeriod ? formatPeriod(activatingPeriod.start_date, activatingPeriod.end_date) : ""}</strong>?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Batal</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (!activatingPeriod) return;
+                save.mutate({
+                  id: activatingPeriod.id,
+                  start_date: activatingPeriod.start_date,
+                  end_date: activatingPeriod.end_date,
+                  status: "active",
+                });
+                setActivatingPeriod(null);
+              }}
+            >
+              Ya, Aktifkan Periode Ini
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

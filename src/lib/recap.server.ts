@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { averageScore } from "./mutabaah-config";
+import { averageScore, monthLabel } from "./mutabaah-config";
 import { clearMentorOverride, getMentorOverride } from "./recap_overrides.server";
 
 type DB = SupabaseClient<any, "public", any>;
@@ -101,8 +101,8 @@ export async function buildMentorRecap(
   const filled = rows.filter((r) => r.filled);
   const calculatedAvg = averageScore(filled.map((r) => r.total));
 
-  // Check if Admin set manual override for mentor
-  const override = getMentorOverride(mentorId);
+  // Check if Admin set manual override for mentor for this specific period
+  const override = getMentorOverride(mentorId, period?.id);
   const finalAvg = override?.isOverride && override.manualWeeklyScore !== undefined
     ? override.manualWeeklyScore
     : calculatedAvg;
@@ -234,7 +234,8 @@ export async function buildMentorSummaries(
     const calcWeekly = averageScore(weekSubs.map((s: any) => Number(s.total_score)));
     const calcMonthly = averageScore(weeklyByPeriod);
 
-    const override = getMentorOverride(m.id);
+    // Get override specific to mentorId & periodId
+    const override = getMentorOverride(m.id, periodId);
     const isOverride = Boolean(override?.isOverride);
 
     return {
@@ -254,6 +255,56 @@ export async function buildMentorSummaries(
   });
 }
 
+export type MentorHistoryItem = {
+  periodId: string;
+  startDate: string;
+  endDate: string;
+  status: string;
+  score: number;
+  isOverride: boolean;
+  source: "Otomatis" | "Manual Admin";
+};
+
+export async function buildMentorHistory(
+  supabase: DB,
+  mentorId: string,
+): Promise<{ mentorName: string; history: MentorHistoryItem[] }> {
+  const { data: mentor } = await supabase
+    .from("mentors")
+    .select("name")
+    .eq("id", mentorId)
+    .maybeSingle();
+
+  const periods = await listPeriods(supabase);
+  const { data: subs } = await supabase
+    .from("mutabaah_submissions")
+    .select("period_id, total_score")
+    .eq("mentor_id", mentorId);
+
+  const submissions = subs ?? [];
+  const history: MentorHistoryItem[] = periods.map((p) => {
+    const pSubs = submissions.filter((s: any) => s.period_id === p.id);
+    const calcScore = averageScore(pSubs.map((s: any) => Number(s.total_score)));
+    const override = getMentorOverride(mentorId, p.id);
+    const isOverride = Boolean(override?.isOverride);
+
+    return {
+      periodId: p.id,
+      startDate: p.start_date,
+      endDate: p.end_date,
+      status: p.status,
+      score: isOverride && override?.manualWeeklyScore !== undefined ? override.manualWeeklyScore : calcScore,
+      isOverride,
+      source: isOverride ? "Manual Admin" : "Otomatis",
+    };
+  });
+
+  return {
+    mentorName: mentor?.name ?? "Mentor",
+    history,
+  };
+}
+
 export async function resetMentorRecapServer(
   supabase: DB,
   mentorId: string,
@@ -261,8 +312,8 @@ export async function resetMentorRecapServer(
   periodId?: string | null,
   monthPeriodIds?: string[],
 ) {
-  // Clear manual override
-  clearMentorOverride(mentorId);
+  // Clear manual override for this mentor and period
+  clearMentorOverride(mentorId, periodId);
 
   // Get all binaan for this mentor strictly filtered by mentor_id
   const { data: binaanList } = await supabase

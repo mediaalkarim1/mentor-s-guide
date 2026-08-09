@@ -29,20 +29,29 @@ function persist() {
   }
 }
 
-export function getMentorOverride(mentorId: string): MentorOverride | undefined {
-  return memoryOverrides[mentorId];
+export function getMentorOverrideKey(mentorId: string, periodId?: string | null): string {
+  return periodId ? `${mentorId}_${periodId}` : mentorId;
 }
 
-export function setMentorOverride(mentorId: string, override: MentorOverride) {
+export function getMentorOverride(mentorId: string, periodId?: string | null): MentorOverride | undefined {
+  const key = getMentorOverrideKey(mentorId, periodId);
+  return memoryOverrides[key] ?? memoryOverrides[mentorId];
+}
+
+export function setMentorOverride(mentorId: string, periodId: string | null | undefined, override: MentorOverride) {
+  const key = getMentorOverrideKey(mentorId, periodId);
   if (!override.isOverride) {
-    delete memoryOverrides[mentorId];
+    delete memoryOverrides[key];
+    if (periodId) delete memoryOverrides[mentorId];
   } else {
-    memoryOverrides[mentorId] = override;
+    memoryOverrides[key] = override;
   }
   persist();
 }
 
-export function clearMentorOverride(mentorId: string) {
-  delete memoryOverrides[mentorId];
+export function clearMentorOverride(mentorId: string, periodId?: string | null) {
+  const key = getMentorOverrideKey(mentorId, periodId);
+  delete memoryOverrides[key];
+  if (periodId) delete memoryOverrides[mentorId];
   persist();
 }

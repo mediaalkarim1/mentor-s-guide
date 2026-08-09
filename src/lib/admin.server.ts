@@ -418,22 +418,30 @@ export async function savePeriodRow(
   supabase: DB,
   row: { id?: string | undefined; start_date: string; end_date: string; status: string },
 ) {
+  let db = supabase;
+  try {
+    if (process.env["SUPABASE_SERVICE_ROLE_KEY"]) {
+      db = supabaseAdmin as unknown as DB;
+    }
+  } catch (e) {
+    // fallback
+  }
+
   if (row.end_date < row.start_date) {
     return { ok: false, error: "Tanggal selesai harus setelah tanggal mulai." };
   }
-  const result = await upsertRow(supabase, "mutabaah_periods", row);
-  if (!result.ok) return result;
 
   if (row.status === "active") {
-    let query = supabase.from("mutabaah_periods").update({ status: "closed" }).eq("status", "active");
-    const { data: current } = await supabase
-      .from("mutabaah_periods")
-      .select("id")
-      .eq("start_date", row.start_date)
-      .eq("end_date", row.end_date)
-      .maybeSingle();
-    if (current?.id) query = query.neq("id", current.id);
-    await query;
+    // Deactivate all existing active periods first
+    let deactQuery = db.from("mutabaah_periods").update({ status: "inactive" }).eq("status", "active");
+    if (row.id) {
+      deactQuery = deactQuery.neq("id", row.id);
+    }
+    await deactQuery;
   }
+
+  const result = await upsertRow(db, "mutabaah_periods", row);
+  if (!result.ok) return result;
+
   return { ok: true };
 }

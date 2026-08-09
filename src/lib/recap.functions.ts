@@ -38,7 +38,6 @@ export const getBinaanDetail = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }) => {
     const { buildBinaanDetail } = await import("./recap.server");
-    // RLS scopes binaan/submissions to the signed-in mentor (or admin).
     return buildBinaanDetail(context.supabase, data.binaanId, data.periodId);
   });
 
@@ -84,6 +83,15 @@ export const getAdminDashboard = createServerFn({ method: "POST" })
         average: averageScore(scored.map((s) => s.weeklyScore)),
       },
     };
+  });
+
+export const getMentorHistory = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data: unknown) => z.object({ mentorId: z.string().uuid() }).parse(data))
+  .handler(async ({ data, context }) => {
+    const { buildMentorHistory } = await import("./recap.server");
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    return buildMentorHistory(supabaseAdmin, data.mentorId);
   });
 
 export const getMonthlyRecap = createServerFn({ method: "POST" })
@@ -143,6 +151,7 @@ export const getExportRows = createServerFn({ method: "POST" })
 
 const saveOverrideSchema = z.object({
   mentorId: z.string().uuid(),
+  periodId: z.string().uuid().optional(),
   isOverride: z.boolean(),
   manualWeeklyScore: z.number().optional(),
   manualMonthlyScore: z.number().optional(),
@@ -162,7 +171,7 @@ export const saveMentorRecapOverride = createServerFn({ method: "POST" })
     }
 
     const { setMentorOverride } = await import("./recap_overrides.server");
-    setMentorOverride(data.mentorId, {
+    setMentorOverride(data.mentorId, data.periodId, {
       isOverride: data.isOverride,
       manualWeeklyScore: data.manualWeeklyScore,
       manualMonthlyScore: data.manualMonthlyScore,
