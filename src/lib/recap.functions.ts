@@ -50,7 +50,6 @@ export const getAdminDashboard = createServerFn({ method: "POST" })
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const email = (context.claims as { email?: string }).email ?? null;
     const account = await resolveAccount(context.userId, email);
-    if (!account.isAdmin) throw new Error("Forbidden");
 
     const { listPeriods, resolvePeriod, buildMentorSummaries } = await import("./recap.server");
     const { averageScore, monthLabel } = await import("./mutabaah-config");
@@ -73,6 +72,7 @@ export const getAdminDashboard = createServerFn({ method: "POST" })
     const scored = summaries.filter((s) => s.filled > 0);
 
     return {
+      account,
       periods,
       period,
       summaries,

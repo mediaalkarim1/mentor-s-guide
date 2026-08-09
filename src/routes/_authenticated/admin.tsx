@@ -56,7 +56,6 @@ export const Route = createFileRoute("/_authenticated/admin")({
       { property: "og:description", content: "Kelola data master dan pantau seluruh mentor." },
     ],
   }),
-  errorComponent: AdminErrorFallback,
   component: AdminPage,
 });
 

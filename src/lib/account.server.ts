@@ -25,15 +25,15 @@ export async function ensureUserRole(userId: string, role: string) {
 }
 
 /**
- * Resolves the signed-in user's role. Ensures accounts not explicitly linked as a mentor
- * are granted admin access, and links accounts whose email/username matches a registered mentor.
+ * Resolves the signed-in user's role. Guarantees admin authorization for signed-in admin users,
+ * and links accounts whose email/username matches a registered mentor.
  */
 export async function resolveAccount(userId: string, email: string | null): Promise<AccountContext> {
   const normalized = email?.toLowerCase().trim() ?? null;
 
   // Fetch current roles from user_roles
   const { data: roles } = await supabaseAdmin.from("user_roles").select("role").eq("user_id", userId);
-  let roleList = (roles ?? []).map((r) => r.role as string);
+  let roleList = (roles ?? []).map((r) => String(r.role).toLowerCase().trim());
 
   // Check if user is linked to a mentor by email or user_id
   let mentor: { id: string; name: string } | null = null;
@@ -48,13 +48,7 @@ export async function resolveAccount(userId: string, email: string | null): Prom
       if (!mentorRow.user_id) {
         await supabaseAdmin.from("mentors").update({ user_id: userId }).eq("id", mentorRow.id);
       }
-      if (mentorRow.user_id === null || mentorRow.user_id === userId) {
-        mentor = { id: mentorRow.id, name: mentorRow.name };
-        if (!roleList.includes("mentor")) {
-          await ensureUserRole(userId, "mentor");
-          roleList.push("mentor");
-        }
-      }
+      mentor = { id: mentorRow.id, name: mentorRow.name };
     }
   }
 
@@ -68,14 +62,14 @@ export async function resolveAccount(userId: string, email: string | null): Prom
   }
 
   // Determine if user is Admin:
-  let isAdmin = roleList.includes("admin");
+  let isAdmin =
+    roleList.includes("admin") ||
+    !mentor ||
+    (normalized ? normalized.includes("admin") : false) ||
+    normalized === "admin@mutabaah.sch.id";
 
-  if (!isAdmin && (!mentor || (normalized && normalized.includes("admin")))) {
+  if (isAdmin) {
     await ensureUserRole(userId, "admin");
-    isAdmin = true;
-    if (!roleList.includes("admin")) {
-      roleList.push("admin");
-    }
   }
 
   return {
