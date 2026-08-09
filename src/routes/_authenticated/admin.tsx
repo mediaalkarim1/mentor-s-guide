@@ -546,7 +546,6 @@ function MentorSection({ rows, binaan }: { rows: any[]; binaan: any[] }) {
   const [editingMentor, setEditingMentor] = useState<any | null>(null);
   const [editName, setEditName] = useState("");
   const [editUsername, setEditUsername] = useState("");
-  const [editEmail, setEditEmail] = useState("");
   const [editPassword, setEditPassword] = useState("");
   const [editStatus, setEditStatus] = useState<"active" | "inactive">("active");
 
@@ -576,8 +575,7 @@ function MentorSection({ rows, binaan }: { rows: any[]; binaan: any[] }) {
   const openEditModal = (m: any) => {
     setEditingMentor(m);
     setEditName(m.name);
-    setEditUsername(m.username ?? "");
-    setEditEmail(m.email ?? "");
+    setEditUsername(m.username ?? (m.email ? m.email.split("@")[0] : ""));
     setEditPassword("");
     setEditStatus(m.status === "active" ? "active" : "inactive");
   };
@@ -774,7 +772,7 @@ function MentorSection({ rows, binaan }: { rows: any[]; binaan: any[] }) {
             <DialogTitle>Edit Mentor: {editingMentor?.name}</DialogTitle>
           </DialogHeader>
           <form
-            className="space-y-3 py-2"
+            className="space-y-3 py-2 text-sm"
             onSubmit={(e) => {
               e.preventDefault();
               if (!editingMentor) return;
@@ -782,7 +780,6 @@ function MentorSection({ rows, binaan }: { rows: any[]; binaan: any[] }) {
                 id: editingMentor.id,
                 name: editName,
                 username: editUsername || null,
-                email: editEmail || null,
                 password: editPassword || null,
                 status: editStatus,
               });
@@ -807,16 +804,6 @@ function MentorSection({ rows, binaan }: { rows: any[]; binaan: any[] }) {
                 value={editUsername}
                 onChange={(e) => setEditUsername(e.target.value)}
                 placeholder="contoh: abi_azam"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="m-edit-email">Email (opsional)</Label>
-              <Input
-                id="m-edit-email"
-                type="email"
-                maxLength={255}
-                value={editEmail}
-                onChange={(e) => setEditEmail(e.target.value)}
               />
             </div>
             <div className="space-y-1.5">

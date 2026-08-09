@@ -291,7 +291,7 @@ export async function restoreBinaanRow(
 
 export async function saveMentorRow(
   supabase: DB,
-  row: { id?: string; name: string; username?: string | null; email?: string | null; password?: string | null; status?: string }
+  row: { id?: string; name: string; username?: string | null; password?: string | null; status?: string }
 ) {
   let db = supabase;
   try {
@@ -302,11 +302,12 @@ export async function saveMentorRow(
     // fallback
   }
 
-  const { id, password, username, ...values } = row;
-  const cleanUsername = username?.trim().toLowerCase() || null;
-  const email = values.email?.trim().toLowerCase() || (cleanUsername ? `${cleanUsername}@mutabaah.local` : `${row.name.toLowerCase().replace(/\s+/g, '_')}@mutabaah.local`);
-
+  const { id, password, username } = row;
   let mentorId = id;
+
+  const cleanUsername = username?.trim().toLowerCase() || row.name.toLowerCase().replace(/\s+/g, '_');
+  const email = `${cleanUsername}@mutabaah.local`;
+
   const updatePayload: Record<string, unknown> = {
     name: row.name.trim(),
     email,
@@ -332,7 +333,7 @@ export async function saveMentorRow(
   // Verify DB persistence by querying updated row directly by PRIMARY KEY ID
   const { data: verified, error: verifyErr } = await db
     .from("mentors")
-    .select("id, name, email, status")
+    .select("id, name, email, status, user_id")
     .eq("id", mentorId)
     .maybeSingle();
 
@@ -340,19 +341,24 @@ export async function saveMentorRow(
     return { ok: false, error: "Gagal memperbarui data mentor di database: " + (verifyErr?.message ?? "") };
   }
 
-  if (password && email && mentorId) {
+  // Sync Supabase Auth User credentials for mentor login
+  if (mentorId) {
     try {
-      const { data: existingUser } = await supabaseAdmin.auth.admin.listUsers();
-      const existing = existingUser?.users?.find((u) => u.email?.toLowerCase() === email.toLowerCase());
+      const { data: usersData } = await supabaseAdmin.auth.admin.listUsers();
+      const existingUser = usersData?.users?.find((u) => u.id === verified.user_id || u.email?.toLowerCase() === email.toLowerCase());
 
       let authUserId: string | undefined;
-      if (existing) {
-        authUserId = existing.id;
-        await supabaseAdmin.auth.admin.updateUserById(authUserId, { password });
+      if (existingUser) {
+        authUserId = existingUser.id;
+        const updateParams: Record<string, unknown> = { email, email_confirm: true };
+        if (password && password.trim().length > 0) {
+          updateParams.password = password;
+        }
+        await supabaseAdmin.auth.admin.updateUserById(authUserId, updateParams);
       } else {
         const { data: newUser, error: createErr } = await supabaseAdmin.auth.admin.createUser({
           email,
-          password,
+          password: password && password.trim().length > 0 ? password : "mentor123",
           email_confirm: true,
         });
         if (createErr) {
