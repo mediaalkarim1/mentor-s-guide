@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { Check, ChevronsUpDown, Loader2, ShieldCheck } from "lucide-react";
 
@@ -96,6 +96,8 @@ export function MutabaahForm() {
     [selectedBinaan, mentorId],
   );
 
+  const queryClient = useQueryClient();
+
   const mutation = useMutation({
     mutationFn: async () => {
       const entries = indicators.map((i) => ({
@@ -106,6 +108,10 @@ export function MutabaahForm() {
     },
     onSuccess: (result) => {
       if (result.ok) {
+        queryClient.invalidateQueries({ queryKey: ["mentor-recap"] });
+        queryClient.invalidateQueries({ queryKey: ["admin-dashboard"] });
+        queryClient.invalidateQueries({ queryKey: ["admin-data"] });
+        queryClient.invalidateQueries({ queryKey: ["public-form-data"] });
         const [start, end] = result.period.split("|");
         setSuccess({
           binaanName: result.binaanName,

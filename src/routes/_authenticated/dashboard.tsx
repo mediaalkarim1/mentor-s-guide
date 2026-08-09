@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
@@ -77,6 +77,18 @@ function DashboardPage() {
   }
 
   const recap = data?.recap;
+
+  const uniqueRows = useMemo(() => {
+    if (!recap?.rows) return [];
+    const map = new Map<string, any>();
+    for (const row of recap.rows) {
+      const key = (row.binaanId || row.name.toLowerCase().trim());
+      if (!map.has(key)) {
+        map.set(key, row);
+      }
+    }
+    return Array.from(map.values());
+  }, [recap?.rows]);
 
   if (!recap) {
     return (
@@ -188,7 +200,7 @@ function DashboardPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-[#DCE9E1]">
-              {recap.rows.map((row, index) => (
+              {uniqueRows.map((row, index) => (
                 <tr key={row.binaanId} className="hover:bg-[#F5FAF7] transition-colors">
                   <td className="px-3.5 py-3 text-center text-xs text-[#52635C] tabular-nums">{index + 1}</td>
                   <td className="px-3.5 py-3 font-semibold text-[#173C32]">
@@ -219,7 +231,7 @@ function DashboardPage() {
                   </td>
                 </tr>
               ))}
-              {recap.rows.length === 0 && (
+              {uniqueRows.length === 0 && (
                 <tr>
                   <td colSpan={recap.indicators.length + 4} className="px-3 py-8 text-center text-xs text-[#52635C]">
                     Belum ada data binaan untuk mentor ini.
