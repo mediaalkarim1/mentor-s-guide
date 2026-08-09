@@ -85,7 +85,7 @@ export async function buildMentorRecap(
 
   const { data: binaanRows } = await supabase
     .from("binaan")
-    .select("id, name")
+    .select("id, name, mentor_id, status")
     .eq("mentor_id", mentorId)
     .eq("status", "active")
     .order("name");
@@ -107,7 +107,7 @@ export async function buildMentorRecap(
   });
 
   const binaanList = Array.from(binaanMap.values()).sort((a, b) => a.name.localeCompare(b.name));
-  const rows: RecapRow[] = [];
+  const rawRows: RecapRow[] = [];
 
   if (period) {
     const { data: submissions } = await supabase
@@ -129,7 +129,7 @@ export async function buildMentorRecap(
           scores[e.indicator_id] = Number(e.achievement_percentage);
         }
       }
-      rows.push({
+      rawRows.push({
         binaanId: b.id,
         name: b.name,
         filled: Boolean(sub),
@@ -139,17 +139,32 @@ export async function buildMentorRecap(
     }
   }
 
-  const filled = rows.filter((r) => r.filled);
+  // Bulletproof final deduplication by binaan name
+  const finalRowsMap = new Map<string, RecapRow>();
+  for (const r of rawRows) {
+    const key = (r.name || "").toLowerCase().trim();
+    if (!finalRowsMap.has(key)) {
+      finalRowsMap.set(key, r);
+    } else {
+      const existing = finalRowsMap.get(key)!;
+      if (!existing.filled && r.filled) {
+        finalRowsMap.set(key, r);
+      }
+    }
+  }
+  const deduplicatedRows = Array.from(finalRowsMap.values());
+
+  const filled = deduplicatedRows.filter((r) => r.filled);
   const calculatedAvg = averageScore(filled.map((r) => r.total));
 
   return {
     period,
     periods,
     indicators,
-    rows,
+    rows: deduplicatedRows,
     average: calculatedAvg,
     filledCount: filled.length,
-    missingCount: Math.max(0, rows.length - filled.length),
+    missingCount: Math.max(0, deduplicatedRows.length - filled.length),
   };
 }
 
