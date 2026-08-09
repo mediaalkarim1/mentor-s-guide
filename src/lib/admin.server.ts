@@ -207,24 +207,39 @@ async function ensureMasterDataSeeded(supabase: DB) {
   }
 }
 
-export async function loadAdminData(supabase: DB) {
-  let { data: mentorsData } = await supabase.from("mentors").select("id, name, email, status").order("name");
-  let { data: binaanData } = await supabase.from("binaan").select("id, name, mentor_id, phone, status, deleted_at").order("name");
+import { supabaseAdmin } from "@/integrations/supabase/client.server";
 
-  if (!mentorsData || mentorsData.length < 13) {
-    await ensureMasterDataSeeded(supabase);
-    const mRes = await supabase.from("mentors").select("id, name, email, status").order("name");
-    const bRes = await supabase.from("binaan").select("id, name, mentor_id, phone, status, deleted_at").order("name");
+export async function loadAdminData(supabase: DB) {
+  let db = supabase;
+  try {
+    if (process.env["SUPABASE_SERVICE_ROLE_KEY"]) {
+      db = supabaseAdmin as unknown as DB;
+    }
+  } catch (e) {
+    // fallback to provided client
+  }
+
+  let { data: mentorsData } = await db.from("mentors").select("id, name, email, status").order("name");
+  let { data: binaanData, error: bErr } = await db.from("binaan").select("id, name, mentor_id, phone, status").order("name");
+  if (bErr || !binaanData) {
+    const fallback = await db.from("binaan").select("id, name, mentor_id, phone, status").order("name");
+    binaanData = fallback.data ?? [];
+  }
+
+  if (!mentorsData || mentorsData.length < 13 || !binaanData || binaanData.length < 85) {
+    await ensureMasterDataSeeded(db);
+    const mRes = await db.from("mentors").select("id, name, email, status").order("name");
+    const bRes = await db.from("binaan").select("id, name, mentor_id, phone, status").order("name");
     mentorsData = mRes.data ?? [];
     binaanData = bRes.data ?? [];
   }
 
   const [indicators, periods] = await Promise.all([
-    supabase
+    db
       .from("mutabaah_indicators")
       .select("id, code, name, target, unit, order_number, active")
       .order("order_number"),
-    supabase
+    db
       .from("mutabaah_periods")
       .select("id, start_date, end_date, status")
       .order("start_date", { ascending: false }),

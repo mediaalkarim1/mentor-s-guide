@@ -209,6 +209,8 @@ function MentorSection({ rows, binaan }: { rows: any[]; binaan: any[] }) {
   const [editEmail, setEditEmail] = useState("");
   const [editStatus, setEditStatus] = useState<"active" | "inactive">("active");
 
+  const [viewingMentor, setViewingMentor] = useState<any | null>(null);
+
   const openEditModal = (m: any) => {
     setEditingMentor(m);
     setEditName(m.name);
@@ -268,7 +270,15 @@ function MentorSection({ rows, binaan }: { rows: any[]; binaan: any[] }) {
                       <td className="px-3 py-2.5 text-right tabular-nums text-muted-foreground">
                         {index + 1}
                       </td>
-                      <td className="px-3 py-2.5 font-semibold text-foreground">{m.name}</td>
+                      <td className="px-3 py-2.5">
+                        <button
+                          type="button"
+                          className="font-semibold text-primary hover:underline text-left"
+                          onClick={() => setViewingMentor(m)}
+                        >
+                          {m.name}
+                        </button>
+                      </td>
                       <td className="px-3 py-2.5 text-xs text-muted-foreground">
                         {m.email ?? "tanpa email"}
                       </td>
@@ -286,15 +296,24 @@ function MentorSection({ rows, binaan }: { rows: any[]; binaan: any[] }) {
                         )}
                       </td>
                       <td className="px-3 py-2.5 text-center font-bold tabular-nums">
-                        {binaanCount}
+                        <button
+                          type="button"
+                          className="hover:underline text-primary"
+                          onClick={() => setViewingMentor(m)}
+                        >
+                          {binaanCount}
+                        </button>
                       </td>
                       <td className="px-3 py-2.5">
                         <Badge variant={isActive ? "default" : "secondary"}>
                           {isActive ? "Aktif" : "Nonaktif"}
                         </Badge>
                       </td>
-                      <td className="px-3 py-2.5 text-right">
-                        <Button size="sm" variant="outline" onClick={() => openEditModal(m)}>
+                      <td className="px-3 py-2.5 text-right space-x-1">
+                        <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => setViewingMentor(m)}>
+                          Detail
+                        </Button>
+                        <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => openEditModal(m)}>
                           Edit
                         </Button>
                       </td>
@@ -306,6 +325,54 @@ function MentorSection({ rows, binaan }: { rows: any[]; binaan: any[] }) {
           </div>
         </Panel>
       </div>
+
+      {/* Viewing Mentor Detail Dialog */}
+      <Dialog open={viewingMentor !== null} onOpenChange={(open) => !open && setViewingMentor(null)}>
+        <DialogContent className="sm:max-w-[28rem]">
+          <DialogHeader>
+            <DialogTitle>Binaan: {viewingMentor?.name}</DialogTitle>
+          </DialogHeader>
+          <div className="py-2 space-y-3">
+            {viewingMentor && (() => {
+              const mBinaan = binaan.filter((b) => b.mentor_id === viewingMentor.id);
+              if (mBinaan.length === 0) {
+                return <p className="text-xs text-muted-foreground">Belum ada binaan untuk mentor ini.</p>;
+              }
+              return (
+                <div className="overflow-x-auto border border-border rounded-md">
+                  <table className="w-full text-left text-sm">
+                    <thead className="border-b border-border bg-secondary/40 text-xs font-semibold uppercase text-muted-foreground">
+                      <tr>
+                        <th className="px-3 py-2 text-right w-10">No</th>
+                        <th className="px-3 py-2">Nama Binaan</th>
+                        <th className="px-3 py-2">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border">
+                      {mBinaan.map((b, i) => (
+                        <tr key={b.id}>
+                          <td className="px-3 py-2 text-right tabular-nums text-muted-foreground text-xs">{i + 1}</td>
+                          <td className="px-3 py-2 font-medium">{b.name}</td>
+                          <td className="px-3 py-2">
+                            <Badge variant={b.status === "active" ? "default" : "secondary"} className="text-xs">
+                              {b.status === "active" ? "Aktif" : "Nonaktif"}
+                            </Badge>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              );
+            })()}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setViewingMentor(null)}>
+              Tutup
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Edit Mentor Dialog */}
       <Dialog open={editingMentor !== null} onOpenChange={(open) => !open && setEditingMentor(null)}>
