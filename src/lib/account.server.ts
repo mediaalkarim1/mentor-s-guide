@@ -8,26 +8,17 @@ export type AccountContext = {
 };
 
 /**
- * Resolves the signed-in user's role. Bootstraps the very first account as admin,
- * and links accounts whose email matches a registered mentor.
+ * Resolves the signed-in user's role. Ensures accounts not explicitly linked as a mentor
+ * are granted admin access, and links accounts whose email/username matches a registered mentor.
  */
 export async function resolveAccount(userId: string, email: string | null): Promise<AccountContext> {
   const normalized = email?.toLowerCase().trim() ?? null;
 
+  // Fetch current roles from user_roles
   const { data: roles } = await supabaseAdmin.from("user_roles").select("role").eq("user_id", userId);
   let roleList = (roles ?? []).map((r) => r.role as string);
 
-  if (roleList.length === 0) {
-    const { count } = await supabaseAdmin
-      .from("user_roles")
-      .select("id", { count: "exact", head: true });
-
-    if ((count ?? 0) === 0) {
-      await supabaseAdmin.from("user_roles").insert({ user_id: userId, role: "admin" });
-      roleList = ["admin"];
-    }
-  }
-
+  // Check if user is linked to a mentor by email or user_id
   let mentor: { id: string; name: string } | null = null;
   if (normalized) {
     const { data: mentorRow } = await supabaseAdmin
@@ -61,10 +52,26 @@ export async function resolveAccount(userId: string, email: string | null): Prom
     if (linked) mentor = { id: linked.id, name: linked.name };
   }
 
+  // Determine if user is Admin:
+  // 1. Explicitly has 'admin' in user_roles
+  // 2. OR user is NOT linked to a mentor (which means they logged in as Admin)
+  // 3. OR user's email contains 'admin'
+  let isAdmin = roleList.includes("admin");
+
+  if (!isAdmin && (!mentor || (normalized && normalized.includes("admin")))) {
+    await supabaseAdmin
+      .from("user_roles")
+      .upsert({ user_id: userId, role: "admin" }, { onConflict: "user_id,role" });
+    isAdmin = true;
+    if (!roleList.includes("admin")) {
+      roleList.push("admin");
+    }
+  }
+
   return {
     userId,
     email: normalized,
-    isAdmin: roleList.includes("admin"),
+    isAdmin,
     mentor,
   };
 }
