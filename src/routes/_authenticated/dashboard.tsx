@@ -79,14 +79,6 @@ function DashboardPage() {
     downloadCsv("rekap-mutabaah.csv", [header, ...body]);
   }
 
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center py-20 text-[#52635C]">
-        <Loader2 className="mr-2 h-5 w-5 animate-spin text-[#006B54]" /> Memuat rekap mutabaah...
-      </div>
-    );
-  }
-
   const recap = data?.recap;
 
   const uniqueRows = useMemo(() => {
@@ -137,6 +129,14 @@ function DashboardPage() {
 
     return Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name));
   }, [recap?.rows, clientStore.binaan, isAdmin, mentorId, data?.account.mentor?.id]);
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-20 text-[#52635C]">
+        <Loader2 className="mr-2 h-5 w-5 animate-spin text-[#006B54]" /> Memuat rekap mutabaah...
+      </div>
+    );
+  }
 
   if (!recap) {
     return (
