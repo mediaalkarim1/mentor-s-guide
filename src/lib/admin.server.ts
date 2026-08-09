@@ -181,6 +181,7 @@ async function ensureMasterDataSeeded(supabase: DB) {
       let mentorId = mentor?.id;
 
       if (!mentorId) {
+        // ONLY insert if mentor does not exist. Never overwrite existing mentors on seed!
         const { data: inserted } = await supabase
           .from("mentors")
           .insert({ name: mData.name, email: mData.email, status: "active" })
@@ -190,11 +191,6 @@ async function ensureMasterDataSeeded(supabase: DB) {
         if (inserted?.id) {
           mentorId = inserted.id;
         }
-      } else {
-        await supabase
-          .from("mentors")
-          .update({ name: mData.name, email: mData.email, status: "active" })
-          .eq("id", mentorId);
       }
 
       if (mentorId) {
@@ -217,12 +213,10 @@ async function ensureMasterDataSeeded(supabase: DB) {
               .maybeSingle();
 
             if (unmapped?.id) {
-              await supabase.from("binaan").update({ mentor_id: mentorId, status: "active" }).eq("id", unmapped.id);
+              await supabase.from("binaan").update({ mentor_id: mentorId }).eq("id", unmapped.id);
             } else {
               await supabase.from("binaan").insert({ name: bName, mentor_id: mentorId, status: "active" });
             }
-          } else {
-            await supabase.from("binaan").update({ status: "active" }).eq("id", existingId);
           }
         }
       }
@@ -242,7 +236,7 @@ export async function loadAdminData(supabase: DB) {
     // fallback
   }
 
-  // Auto-seed and auto-map all 13 mentors and 84 binaan
+  // Seed initial master data if database missing records (never overwrites edited rows)
   await ensureMasterDataSeeded(db);
 
   let { data: mentorsData } = await db.from("mentors").select("id, name, email, status").order("name");
@@ -341,7 +335,7 @@ export async function saveMentorRow(
 
   let mentorId = id;
   const updatePayload: Record<string, unknown> = {
-    name: row.name,
+    name: row.name.trim(),
     email,
     status: row.status ?? "active",
   };
@@ -360,6 +354,17 @@ export async function saveMentorRow(
       .single();
     if (error) return { ok: false, error: error.message };
     mentorId = inserted.id;
+  }
+
+  // Verify DB persistence by querying updated row directly by PRIMARY KEY ID
+  const { data: verified, error: verifyErr } = await db
+    .from("mentors")
+    .select("id, name, email, status")
+    .eq("id", mentorId)
+    .maybeSingle();
+
+  if (verifyErr || !verified || verified.name !== row.name.trim()) {
+    return { ok: false, error: "Gagal memperbarui data mentor di database: " + (verifyErr?.message ?? "") };
   }
 
   if (password && email && mentorId) {
@@ -396,7 +401,7 @@ export async function saveMentorRow(
     }
   }
 
-  return { ok: true };
+  return { ok: true, mentor: verified };
 }
 
 export async function deleteMentorRow(supabase: DB, mentorId: string) {
