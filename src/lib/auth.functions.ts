@@ -3,7 +3,7 @@ import { z } from "zod";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 
 const adminLoginSchema = z.object({
-  email: z.string().trim().email(),
+  email: z.string().trim().min(1),
   password: z.string().min(1),
 });
 
@@ -15,7 +15,10 @@ const mentorLoginSchema = z.object({
 export const loginAdminFn = createServerFn({ method: "POST" })
   .inputValidator((data: unknown) => adminLoginSchema.parse(data))
   .handler(async ({ data }) => {
-    const email = data.email.toLowerCase().trim();
+    let email = data.email.toLowerCase().trim();
+    if (!email.includes("@")) {
+      email = `${email}@mutabaah.sch.id`;
+    }
     const password = data.password;
 
     try {

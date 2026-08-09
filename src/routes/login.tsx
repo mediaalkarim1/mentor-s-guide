@@ -61,7 +61,7 @@ function LoginPage() {
         return;
       }
 
-      // Authenticate client Supabase session
+      // Authenticate client Supabase session using resolved email
       const { error } = await supabase.auth.signInWithPassword({
         email: serverRes.email,
         password: adminPassword,
@@ -77,7 +77,7 @@ function LoginPage() {
       navigate({ to: "/admin", replace: true });
     } catch (err: any) {
       toast.error("Username atau password salah.");
-    } finally {
+    } fontinally: {
       setLoading(false);
     }
   }
@@ -193,12 +193,12 @@ function LoginPage() {
                   <Label htmlFor="admin-email" className="text-xs font-semibold text-[#173C32]">Username / Email Admin</Label>
                   <Input
                     id="admin-email"
-                    type="email"
+                    type="text"
                     required
                     maxLength={255}
                     value={adminEmail}
                     onChange={(e) => setAdminEmail(e.target.value)}
-                    placeholder="Masukkan email admin"
+                    placeholder="Masukkan username atau email admin"
                     className="min-h-[44px] bg-white border-[#D5E3DB] focus:border-[#0F8A6A]"
                   />
                 </div>
@@ -208,7 +208,7 @@ function LoginPage() {
                     id="admin-password"
                     type="password"
                     required
-                    minLength={6}
+                    minLength={4}
                     maxLength={72}
                     value={adminPassword}
                     onChange={(e) => setAdminPassword(e.target.value)}
