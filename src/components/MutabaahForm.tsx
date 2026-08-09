@@ -1,11 +1,10 @@
 import { useMemo, useState } from "react";
-import { Link } from "@tanstack/react-router";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { Check, ChevronsUpDown, LogIn, Loader2, ShieldCheck, Sparkles } from "lucide-react";
+import { Check, ChevronsUpDown, Loader2, ShieldCheck } from "lucide-react";
 
 import { getPublicFormData, submitMutabaah } from "@/lib/mutabaah.functions";
-import { categoryFor, formatDisplayScore, formatPeriod, optionsFor } from "@/lib/mutabaah-config";
+import { formatDisplayScore, formatPeriod, optionsFor } from "@/lib/mutabaah-config";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { ScoreBadge } from "@/components/ScoreBadge";
@@ -139,22 +138,18 @@ export function MutabaahForm() {
   return (
     <div className="mx-auto w-full max-w-3xl px-3 sm:px-4 pb-16">
       {/* Header Banner */}
-      <header className="bg-gradient-to-b from-[#006B54] to-[#0F8A6A] -mx-3 sm:-mx-4 mb-6 px-4 py-8 sm:px-8 sm:py-10 text-center text-white sm:rounded-b-3xl shadow-sm">
-        <div className="flex justify-between items-center mb-4">
-          <div className="inline-flex items-center gap-1.5 text-xs font-medium bg-white/10 backdrop-blur-xs px-3 py-1 rounded-full text-white/90">
-            <Sparkles className="h-3.5 w-3.5" />
-            <span>Modern Islamic Education</span>
-          </div>
-          <Button asChild variant="ghost" size="sm" className="text-white hover:bg-white/10 text-xs h-8">
-            <Link to="/login">
-              <LogIn className="mr-1.5 h-3.5 w-3.5" /> Login Portal
-            </Link>
-          </Button>
-        </div>
-        <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">MUTABAAH GURU</h1>
-        <p className="mt-1 text-xs sm:text-sm opacity-90">Form Pengisian Capaian Amaliah Pekanan</p>
+      <header className="bg-gradient-to-b from-[#006B54] to-[#0F8A6A] -mx-3 sm:-mx-4 mb-6 px-4 py-7 sm:px-8 sm:py-9 text-center text-white sm:rounded-b-3xl shadow-sm">
+        <h1 className="text-xl sm:text-2xl md:text-3xl font-bold tracking-tight text-white uppercase leading-snug">
+          MUTABAAH GURU
+          <span className="block text-lg sm:text-xl md:text-2xl font-semibold mt-0.5 text-white">
+            SEKOLAH ALAM AL-KARIM
+          </span>
+        </h1>
+        <p className="mt-2 text-xs sm:text-sm text-white/90 font-medium">
+          Form Pengisian Capaian Amaliah Pekanan
+        </p>
         {periodLabel && (
-          <div className="mt-4 inline-flex items-center gap-1.5 rounded-full bg-white/15 px-4 py-1.5 text-xs sm:text-sm font-medium border border-white/20">
+          <div className="mt-3.5 inline-flex items-center gap-1.5 rounded-full bg-white/15 px-4 py-1.5 text-xs sm:text-sm font-medium border border-white/20 text-white">
             <span>Mutabaah Pekan: {periodLabel}</span>
           </div>
         )}
