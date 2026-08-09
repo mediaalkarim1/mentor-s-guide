@@ -111,7 +111,16 @@ function AdminPage() {
     );
   }
 
-  const d = dashboard.data!;
+  const d = dashboard.data;
+
+  if (!d || !d.stats) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 text-muted-foreground space-y-4">
+        <Loader2 className="h-6 w-6 animate-spin text-primary" />
+        <p className="text-sm">Menyiapkan data panel admin...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
