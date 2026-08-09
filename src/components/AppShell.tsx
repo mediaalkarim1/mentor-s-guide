@@ -72,7 +72,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                     <Home className="inline-block h-4 w-4 mr-1" /> Beranda
                   </NavLink>
                   <NavLink to="/mutabaah">
-                    <FileEdit className="inline-block h-4 w-4 mr-1" /> Isi Mutabaah
+                    <FileEdit className="inline-block h-4 w-4 mr-1" /> Mutabaah
                   </NavLink>
                   <NavLink to="/panduan">
                     <Info className="inline-block h-4 w-4 mr-1" /> Panduan
@@ -164,7 +164,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                     Beranda
                   </MobileNavLink>
                   <MobileNavLink to="/mutabaah" onClick={() => setMobileMenuOpen(false)}>
-                    Isi Mutabaah Pekanan
+                    Mutabaah Pekanan
                   </MobileNavLink>
                   <MobileNavLink to="/panduan" onClick={() => setMobileMenuOpen(false)}>
                     Panduan Pengisian
@@ -285,6 +285,7 @@ function NavLink({ to, children }: { to: string; children: ReactNode }) {
   return (
     <Link
       to={to}
+      activeOptions={{ exact: true }}
       className="rounded-lg px-3 py-1.5 text-xs md:text-sm text-[#52635C] transition-colors hover:bg-[#EAF4EE] hover:text-[#006B54] font-medium"
       activeProps={{ className: "bg-[#EAF4EE] text-[#006B54] font-semibold" }}
     >
@@ -297,6 +298,7 @@ function MobileNavLink({ to, onClick, children }: { to: string; onClick: () => v
   return (
     <Link
       to={to}
+      activeOptions={{ exact: true }}
       onClick={onClick}
       className="block rounded-lg px-3 py-2.5 text-sm text-[#52635C] transition-colors hover:bg-[#EAF4EE] hover:text-[#006B54]"
       activeProps={{ className: "bg-[#EAF4EE] text-[#006B54] font-semibold" }}
@@ -310,8 +312,9 @@ function BottomNavItem({ to, label, icon }: { to: string; label: string; icon: R
   return (
     <Link
       to={to}
+      activeOptions={{ exact: true }}
       className="flex flex-col items-center justify-center flex-1 h-full py-1 text-[11px] font-medium text-[#52635C] transition-colors hover:text-[#006B54]"
-      activeProps={{ className: "text-[#006B54] font-bold" }}
+      activeProps={{ className: "text-[#006B54] font-bold bg-[#EAF4EE] rounded-lg" }}
     >
       <div className="p-1 rounded-full transition-colors active:bg-[#EAF4EE]">
         {icon}

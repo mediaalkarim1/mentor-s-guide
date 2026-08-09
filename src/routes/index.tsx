@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { MutabaahForm } from "@/components/MutabaahForm";
+import { AppShell } from "@/components/AppShell";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -17,5 +18,13 @@ export const Route = createFileRoute("/")({
       },
     ],
   }),
-  component: MutabaahForm,
+  component: HomePage,
 });
+
+function HomePage() {
+  return (
+    <AppShell>
+      <MutabaahForm />
+    </AppShell>
+  );
+}
