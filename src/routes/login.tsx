@@ -2,10 +2,8 @@ import { useEffect, useState } from "react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { Loader2, ShieldCheck, UserCheck } from "lucide-react";
 import { toast } from "sonner";
-import { useServerFn } from "@tanstack/react-start";
 
 import { supabase } from "@/integrations/supabase/client";
-import { loginAdminFn, loginMentorFn } from "@/lib/auth.functions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -25,8 +23,6 @@ export const Route = createFileRoute("/login")({
 
 function LoginPage() {
   const navigate = useNavigate();
-  const loginAdminServer = useServerFn(loginAdminFn);
-  const loginMentorServer = useServerFn(loginMentorFn);
 
   const [activeTab, setActiveTab] = useState<"mentor" | "admin">("mentor");
 
@@ -54,7 +50,7 @@ function LoginPage() {
       const rawInput = adminEmail.trim().toLowerCase();
       const loginEmail = rawInput.includes("@") ? rawInput : `${rawInput}@mutabaah.sch.id`;
 
-      // 1. Try direct client-side Supabase authentication first
+      // 1. Direct login using resolved email
       const { data, error } = await supabase.auth.signInWithPassword({
         email: loginEmail,
         password: adminPassword,
@@ -66,25 +62,21 @@ function LoginPage() {
         return;
       }
 
-      // 2. Fallback to server function if user auto-provisioning is needed
-      const serverRes = await loginAdminServer({
-        data: { email: adminEmail, password: adminPassword },
-      }).catch(() => null);
-
-      if (serverRes?.ok && serverRes?.email) {
-        const { error: retryErr } = await supabase.auth.signInWithPassword({
-          email: serverRes.email,
+      // 2. Try raw input as email if different
+      if (rawInput !== loginEmail) {
+        const { data: rawData, error: rawErr } = await supabase.auth.signInWithPassword({
+          email: rawInput,
           password: adminPassword,
         });
 
-        if (!retryErr) {
+        if (!rawErr && rawData.session) {
           toast.success("Login Admin Berhasil!");
           navigate({ to: "/admin", replace: true });
           return;
         }
       }
 
-      toast.error("Username atau password Admin salah.");
+      toast.error(error?.message ?? "Username atau password Admin salah.");
     } catch (err: any) {
       toast.error("Username atau password Admin salah.");
     } finally {
@@ -99,7 +91,7 @@ function LoginPage() {
       const rawInput = mentorUsername.trim().toLowerCase();
       const formattedEmail = rawInput.includes("@") ? rawInput : `${rawInput}@mutabaah.sch.id`;
 
-      // 1. Try direct client-side Supabase authentication first
+      // 1. Direct login with formatted email
       const { data: directData, error: directErr } = await supabase.auth.signInWithPassword({
         email: formattedEmail,
         password: mentorPassword || "mentor123",
@@ -111,25 +103,20 @@ function LoginPage() {
         return;
       }
 
-      // 2. Fallback via server function
-      const serverRes = await loginMentorServer({
-        data: { username: mentorUsername, password: mentorPassword },
-      }).catch(() => null);
+      // 2. Direct login with .local fallback email
+      const localEmail = `${rawInput.replace(/\s+/g, "_")}@mutabaah.local`;
+      const { data: localData, error: localErr } = await supabase.auth.signInWithPassword({
+        email: localEmail,
+        password: mentorPassword || "mentor123",
+      });
 
-      if (serverRes?.ok && serverRes?.email) {
-        const { error: retryErr } = await supabase.auth.signInWithPassword({
-          email: serverRes.email,
-          password: mentorPassword,
-        });
-
-        if (!retryErr) {
-          toast.success(`Selamat Datang, ${serverRes.mentorName ?? mentorUsername}!`);
-          navigate({ to: "/dashboard", replace: true });
-          return;
-        }
+      if (!localErr && localData.session) {
+        toast.success(`Selamat Datang, ${mentorUsername}!`);
+        navigate({ to: "/dashboard", replace: true });
+        return;
       }
 
-      toast.error("Username atau password Mentor salah.");
+      toast.error(directErr?.message ?? "Username atau password Mentor salah.");
     } catch (err: any) {
       toast.error("Username atau password Mentor salah.");
     } finally {

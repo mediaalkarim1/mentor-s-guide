@@ -35,14 +35,14 @@ function createSupabaseClient() {
     procEnv['VITE_SUPABASE_URL'] ||
     metaEnv['SUPABASE_URL'] ||
     procEnv['SUPABASE_URL'] ||
-    'https://placeholder.supabase.co';
+    'https://mvbmkbkgjmvyvadhqbvu.supabase.co';
 
   const SUPABASE_PUBLISHABLE_KEY =
     metaEnv['VITE_SUPABASE_PUBLISHABLE_KEY'] ||
     procEnv['VITE_SUPABASE_PUBLISHABLE_KEY'] ||
     metaEnv['SUPABASE_PUBLISHABLE_KEY'] ||
     procEnv['SUPABASE_PUBLISHABLE_KEY'] ||
-    'placeholder-key';
+    'sb_publishable_Z1V67PzE6L34-N7L6J9X1Q';
 
   return createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
     global: {
