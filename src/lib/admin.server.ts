@@ -36,37 +36,53 @@ export async function loadAdminData(supabase: DB) {
 
   const store = getMasterStore();
 
-  // Merge DB data with persistent master store seamlessly
+  // Merge DB data with persistent master store seamlessly using normalized entity keys
   const mentorMap = new Map<string, any>();
   store.mentors.forEach((m) => {
-    mentorMap.set(m.id, {
+    const key = (m.name || "").toLowerCase().trim();
+    mentorMap.set(key, {
       ...m,
       email: m.email ?? `${m.name.toLowerCase().replace(/\s+/g, "_")}@mutabaah.local`,
       status: m.status ?? "active",
     });
   });
-  mentorsData.forEach((m) => mentorMap.set(m.id, m));
+  mentorsData.forEach((m) => {
+    const key = (m.name || "").toLowerCase().trim();
+    mentorMap.set(key, m);
+  });
   const mentorsList = Array.from(mentorMap.values());
 
   const binaanMap = new Map<string, any>();
   store.binaan.forEach((b) => {
-    binaanMap.set(b.id, { ...b, status: b.status ?? "active" });
+    const key = `${(b.name || "").toLowerCase().trim()}::${b.mentor_id}`;
+    binaanMap.set(key, { ...b, status: b.status ?? "active" });
   });
-  binaanData.forEach((b) => binaanMap.set(b.id, b));
+  binaanData.forEach((b) => {
+    const key = `${(b.name || "").toLowerCase().trim()}::${b.mentor_id}`;
+    binaanMap.set(key, b);
+  });
   const binaanList = Array.from(binaanMap.values());
 
   const indicatorMap = new Map<string, any>();
   store.indicators.forEach((i) => {
-    indicatorMap.set(i.id, { ...i, active: i.active ?? true });
+    const key = (i.code || "").toUpperCase().trim();
+    indicatorMap.set(key, { ...i, active: i.active ?? true });
   });
-  indicatorsData.forEach((i) => indicatorMap.set(i.id, i));
+  indicatorsData.forEach((i) => {
+    const key = (i.code || "").toUpperCase().trim();
+    indicatorMap.set(key, i);
+  });
   const indicatorsList = Array.from(indicatorMap.values()).sort((a, b) => (a.order_number || 0) - (b.order_number || 0));
 
   const periodMap = new Map<string, any>();
   store.periods.forEach((p) => {
-    periodMap.set(p.id, p);
+    const key = `${p.start_date}::${p.end_date}`;
+    periodMap.set(key, p);
   });
-  periodsData.forEach((p) => periodMap.set(p.id, p));
+  periodsData.forEach((p) => {
+    const key = `${p.start_date}::${p.end_date}`;
+    periodMap.set(key, p);
+  });
   const periodsList = Array.from(periodMap.values()).sort((a, b) => b.start_date.localeCompare(a.start_date));
 
   const mentorsMapped = mentorsList.map((m: any) => ({
@@ -82,151 +98,70 @@ export async function loadAdminData(supabase: DB) {
   };
 }
 
-export async function upsertRow(supabase: DB, table: string, row: Record<string, unknown>) {
-  const { id, ...values } = row as { id?: string };
-
-  let db = supabase;
+export async function saveMentorRow(supabase: DB, data: { id?: string; name: string; username?: string; status?: string }) {
+  updateMasterStore("mentors", "upsert", data);
   try {
-    if (process.env["SUPABASE_SERVICE_ROLE_KEY"]) {
-      db = supabaseAdmin as unknown as DB;
-    }
-  } catch (e) {}
-
-  try {
-    if (id) {
-      await db.from(table).update(values).eq("id", id);
-    } else {
-      await db.from(table).insert(values);
-    }
+    const email = `${data.name.toLowerCase().replace(/\s+/g, "_")}@mutabaah.local`;
+    const payload: any = { name: data.name, email, status: data.status ?? "active" };
+    if (data.id) payload.id = data.id;
+    await supabaseAdmin.from("mentors").upsert(payload, { onConflict: "id" });
   } catch (e) {
-    console.warn(`upsertRow DB warning for table ${table}`, e);
+    console.warn("saveMentorRow DB write notice", e);
   }
-
-  // Update persistent master store
-  if (table === "binaan") {
-    const bId = id ?? `b1000000-0000-0000-0000-${Date.now().toString().padStart(12, '0').slice(-12)}`;
-    updateMasterStore("binaan", "upsert", {
-      id: bId,
-      name: String(row.name),
-      mentor_id: String(row.mentor_id),
-      phone: row.phone ? String(row.phone) : undefined,
-      status: String(row.status ?? "active"),
-    });
-  } else if (table === "mutabaah_indicators") {
-    const iId = id ?? `c1000000-0000-0000-0000-${Date.now().toString().padStart(12, '0').slice(-12)}`;
-    updateMasterStore("indicators", "upsert", {
-      id: iId,
-      code: String(row.code),
-      name: String(row.name),
-      target: Number(row.target),
-      unit: String(row.unit),
-      order_number: Number(row.order_number),
-      active: Boolean(row.active ?? true),
-    });
-  } else if (table === "mutabaah_periods") {
-    const pId = id ?? `d1000000-0000-0000-0000-${Date.now().toString().padStart(12, '0').slice(-12)}`;
-    updateMasterStore("periods", "upsert", {
-      id: pId,
-      start_date: String(row.start_date),
-      end_date: String(row.end_date),
-      status: String(row.status),
-    });
-  }
-
   return { ok: true };
 }
 
-export async function deleteBinaanRow(supabase: DB, binaanId: string) {
-  let db = supabase;
+export async function deleteMentorRow(supabase: DB, id: string) {
+  updateMasterStore("mentors", "delete", { id });
   try {
-    if (process.env["SUPABASE_SERVICE_ROLE_KEY"]) {
-      db = supabaseAdmin as unknown as DB;
+    const { count } = await supabaseAdmin.from("binaan").select("id", { count: "exact", head: true }).eq("mentor_id", id);
+    if (count && count > 0) {
+      await supabaseAdmin.from("mentors").update({ status: "inactive" }).eq("id", id);
+      return { ok: true, mode: "soft" };
     }
-    await db.from("binaan").delete().eq("id", binaanId);
-  } catch (e) {}
-
-  updateMasterStore("binaan", "delete", { id: binaanId });
+    await supabaseAdmin.from("mentors").delete().eq("id", id);
+  } catch (e) {
+    console.warn("deleteMentorRow DB write notice", e);
+  }
   return { ok: true, mode: "hard" };
 }
 
-export async function restoreBinaanRow(
-  supabase: DB,
-  row: { id: string; mentor_id?: string },
-) {
-  const updates: Record<string, unknown> = {
-    status: "active",
-    deleted_at: null,
-  };
-  if (row.mentor_id) {
-    updates.mentor_id = row.mentor_id;
-  }
-  let db = supabase;
+export async function deleteBinaanRow(supabase: DB, id: string) {
+  updateMasterStore("binaan", "delete", { id });
   try {
-    if (process.env["SUPABASE_SERVICE_ROLE_KEY"]) {
-      db = supabaseAdmin as unknown as DB;
+    const { count } = await supabaseAdmin.from("mutabaah_submissions").select("id", { count: "exact", head: true }).eq("binaan_id", id);
+    if (count && count > 0) {
+      await supabaseAdmin.from("binaan").update({ status: "inactive" }).eq("id", id);
+      return { ok: true, mode: "soft" };
     }
-    await db.from("binaan").update(updates).eq("id", row.id);
-  } catch (e) {}
+    await supabaseAdmin.from("binaan").delete().eq("id", id);
+  } catch (e) {
+    console.warn("deleteBinaanRow DB write notice", e);
+  }
+  return { ok: true, mode: "hard" };
+}
 
-  updateMasterStore("binaan", "upsert", { id: row.id, status: "active", mentor_id: row.mentor_id });
+export async function savePeriodRow(supabase: DB, data: { id?: string; start_date: string; end_date: string; status: string }) {
+  updateMasterStore("periods", data.status === "active" ? "activate" : "upsert", data);
+  try {
+    if (data.status === "active") {
+      await supabaseAdmin.from("mutabaah_periods").update({ status: "closed" }).neq("id", data.id ?? "");
+    }
+    const payload: any = { start_date: data.start_date, end_date: data.end_date, status: data.status };
+    if (data.id) payload.id = data.id;
+    await supabaseAdmin.from("mutabaah_periods").upsert(payload, { onConflict: "id" });
+  } catch (e) {
+    console.warn("savePeriodRow DB write notice", e);
+  }
   return { ok: true };
 }
 
-export async function saveMentorRow(
-  supabase: DB,
-  row: { id?: string; name: string; username?: string | null; password?: string | null; status?: string }
-) {
-  let db = supabase;
+export async function upsertRow(supabase: DB, table: string, row: Record<string, any>) {
+  updateMasterStore(table as any, "upsert", row);
   try {
-    if (process.env["SUPABASE_SERVICE_ROLE_KEY"]) {
-      db = supabaseAdmin as unknown as DB;
-    }
-  } catch (e) {}
-
-  const { id, password, username } = row;
-  const cleanUsername = username?.trim().toLowerCase() || row.name.toLowerCase().replace(/\s+/g, '_');
-  const email = `${cleanUsername}@mutabaah.local`;
-
-  const mentorId = id ?? `a1000000-0000-0000-0000-${Date.now().toString().padStart(12, '0').slice(-12)}`;
-
-  try {
-    if (id) {
-      await db.from("mentors").update({ name: row.name.trim(), email, status: row.status ?? "active" }).eq("id", id);
-    } else {
-      await db.from("mentors").insert({ id: mentorId, name: row.name.trim(), email, status: row.status ?? "active" });
-    }
+    await supabaseAdmin.from(table).upsert(row, { onConflict: "id" });
   } catch (e) {
-    console.warn("saveMentorRow DB warning", e);
+    console.warn(`upsertRow ${table} DB write notice`, e);
   }
-
-  const mItem = {
-    id: mentorId,
-    name: row.name.trim(),
-    email,
-    username: cleanUsername,
-    status: row.status ?? "active",
-  };
-  updateMasterStore("mentors", "upsert", mItem);
-
-  return { ok: true, mentor: mItem };
-}
-
-export async function deleteMentorRow(supabase: DB, mentorId: string) {
-  let db = supabase;
-  try {
-    if (process.env["SUPABASE_SERVICE_ROLE_KEY"]) {
-      db = supabaseAdmin as unknown as DB;
-    }
-    await db.from("mentors").delete().eq("id", mentorId);
-  } catch (e) {}
-
-  updateMasterStore("mentors", "delete", { id: mentorId });
-  return { ok: true, mode: "hard" };
-}
-
-export async function savePeriodRow(
-  supabase: DB,
-  row: { id?: string | undefined; start_date: string; end_date: string; status: string },
-) {
-  return upsertRow(supabase, "mutabaah_periods", row);
+  return { ok: true };
 }
