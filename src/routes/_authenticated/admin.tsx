@@ -148,7 +148,7 @@ function AdminPage() {
         </TabsList>
 
         <TabsContent value="mentor" className="pt-4">
-          <MentorSection rows={master.data?.mentors ?? []} />
+          <MentorSection rows={master.data?.mentors ?? []} binaan={master.data?.binaan ?? []} />
         </TabsContent>
         <TabsContent value="binaan" className="pt-4">
           <BinaanSection rows={master.data?.binaan ?? []} mentors={master.data?.mentors ?? []} />
@@ -199,46 +199,161 @@ function Panel({ title, children }: { title: string; children: React.ReactNode }
   );
 }
 
-function MentorSection({ rows }: { rows: any[] }) {
+function MentorSection({ rows, binaan }: { rows: any[]; binaan: any[] }) {
   const save = useSaver(saveMentor, ["admin-data", "admin-dashboard", "admin-mentors"]);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
 
+  const [editingMentor, setEditingMentor] = useState<any | null>(null);
+  const [editName, setEditName] = useState("");
+  const [editEmail, setEditEmail] = useState("");
+  const [editStatus, setEditStatus] = useState<"active" | "inactive">("active");
+
+  const openEditModal = (m: any) => {
+    setEditingMentor(m);
+    setEditName(m.name);
+    setEditEmail(m.email ?? "");
+    setEditStatus(m.status === "active" ? "active" : "inactive");
+  };
+
   return (
-    <div className="grid gap-4 md:grid-cols-[20rem_1fr]">
-      <Panel title="Tambah Mentor">
-        <form
-          className="space-y-3"
-          onSubmit={(e) => {
-            e.preventDefault();
-            save.mutate({ name, email: email || null, status: "active" });
-            setName("");
-            setEmail("");
-          }}
-        >
-          <div className="space-y-1.5">
-            <Label htmlFor="m-name">Nama</Label>
-            <Input id="m-name" required maxLength={100} value={name} onChange={(e) => setName(e.target.value)} />
+    <div className="space-y-4">
+      <div className="grid gap-4 md:grid-cols-[20rem_1fr]">
+        <Panel title="Tambah Mentor">
+          <form
+            className="space-y-3"
+            onSubmit={(e) => {
+              e.preventDefault();
+              save.mutate({ name, email: email || null, status: "active" });
+              setName("");
+              setEmail("");
+            }}
+          >
+            <div className="space-y-1.5">
+              <Label htmlFor="m-name">Nama Mentor</Label>
+              <Input id="m-name" required maxLength={100} value={name} onChange={(e) => setName(e.target.value)} />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="m-email">Email (untuk login)</Label>
+              <Input id="m-email" type="email" maxLength={255} value={email} onChange={(e) => setEmail(e.target.value)} />
+            </div>
+            <Button type="submit" className="w-full" disabled={save.isPending}>
+              Simpan
+            </Button>
+          </form>
+        </Panel>
+        <Panel title="Data Mentor">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm">
+              <thead className="border-b border-border bg-secondary/40 text-xs font-semibold uppercase text-muted-foreground">
+                <tr>
+                  <th className="px-3 py-2 text-right w-12">No</th>
+                  <th className="px-3 py-2">Nama Mentor</th>
+                  <th className="px-3 py-2">Email / Username</th>
+                  <th className="px-3 py-2 text-center">Jumlah Binaan</th>
+                  <th className="px-3 py-2">Status</th>
+                  <th className="px-3 py-2 text-right">Aksi</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {rows.map((m, index) => {
+                  const binaanCount = binaan.filter(
+                    (b) => b.mentor_id === m.id && b.status === "active",
+                  ).length;
+                  const isActive = m.status === "active";
+                  return (
+                    <tr key={m.id} className="hover:bg-muted/30">
+                      <td className="px-3 py-2.5 text-right tabular-nums text-muted-foreground">
+                        {index + 1}
+                      </td>
+                      <td className="px-3 py-2.5 font-medium">{m.name}</td>
+                      <td className="px-3 py-2.5 text-xs text-muted-foreground">
+                        {m.email ?? "tanpa email"}
+                      </td>
+                      <td className="px-3 py-2.5 text-center font-semibold tabular-nums">
+                        {binaanCount}
+                      </td>
+                      <td className="px-3 py-2.5">
+                        <Badge variant={isActive ? "default" : "secondary"}>
+                          {isActive ? "Aktif" : "Nonaktif"}
+                        </Badge>
+                      </td>
+                      <td className="px-3 py-2.5 text-right">
+                        <Button size="sm" variant="outline" onClick={() => openEditModal(m)}>
+                          Edit
+                        </Button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="m-email">Email (untuk login)</Label>
-            <Input id="m-email" type="email" maxLength={255} value={email} onChange={(e) => setEmail(e.target.value)} />
-          </div>
-          <Button type="submit" className="w-full" disabled={save.isPending}>
-            Simpan
-          </Button>
-        </form>
-      </Panel>
-      <Panel title="Daftar Mentor">
-        <ul className="divide-y divide-border text-sm">
-          {rows.map((m) => (
-            <li key={m.id} className="flex items-center justify-between py-2">
-              <span className="font-medium">{m.name}</span>
-              <span className="text-xs text-muted-foreground">{m.email ?? "tanpa email"}</span>
-            </li>
-          ))}
-        </ul>
-      </Panel>
+        </Panel>
+      </div>
+
+      {/* Edit Mentor Dialog */}
+      <Dialog open={editingMentor !== null} onOpenChange={(open) => !open && setEditingMentor(null)}>
+        <DialogContent className="sm:max-w-[26rem]">
+          <DialogHeader>
+            <DialogTitle>Edit Mentor</DialogTitle>
+          </DialogHeader>
+          <form
+            className="space-y-3 py-2"
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (!editingMentor) return;
+              save.mutate({
+                id: editingMentor.id,
+                name: editName,
+                email: editEmail || null,
+                status: editStatus,
+              });
+              setEditingMentor(null);
+            }}
+          >
+            <div className="space-y-1.5">
+              <Label htmlFor="m-edit-name">Nama Mentor</Label>
+              <Input
+                id="m-edit-name"
+                required
+                maxLength={100}
+                value={editName}
+                onChange={(e) => setEditName(e.target.value)}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="m-edit-email">Email / Username</Label>
+              <Input
+                id="m-edit-email"
+                maxLength={255}
+                value={editEmail}
+                onChange={(e) => setEditEmail(e.target.value)}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Status</Label>
+              <Select value={editStatus} onValueChange={(val: any) => setEditStatus(val)}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="active">Aktif</SelectItem>
+                  <SelectItem value="inactive">Nonaktif</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <DialogFooter className="pt-2">
+              <Button type="button" variant="outline" onClick={() => setEditingMentor(null)}>
+                Batal
+              </Button>
+              <Button type="submit" disabled={save.isPending}>
+                Simpan Perubahan
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -290,6 +405,9 @@ function BinaanSection({ rows, mentors }: { rows: any[]; mentors: any[] }) {
   const [mentorId, setMentorId] = useState("");
   const [phone, setPhone] = useState("");
 
+  // State for Filter Mentor: "all" | mentorId
+  const [mentorFilter, setMentorFilter] = useState<string>("all");
+
   // State for Filter Status: "active" (default) | "inactive" | "all"
   const [statusFilter, setStatusFilter] = useState<"active" | "inactive" | "all">("active");
 
@@ -310,8 +428,9 @@ function BinaanSection({ rows, mentors }: { rows: any[]; mentors: any[] }) {
   const activeMentors = mentors.filter((m) => m.status === "active");
 
   const filteredRows = rows.filter((b) => {
-    if (statusFilter === "active") return b.status === "active";
-    if (statusFilter === "inactive") return b.status !== "active";
+    if (statusFilter === "active" && b.status !== "active") return false;
+    if (statusFilter === "inactive" && b.status === "active") return false;
+    if (mentorFilter !== "all" && b.mentor_id !== mentorFilter) return false;
     return true;
   });
 
@@ -391,21 +510,40 @@ function BinaanSection({ rows, mentors }: { rows: any[]; mentors: any[] }) {
         </Panel>
 
         <Panel title="Data Binaan">
-          <div className="mb-4 flex items-center justify-between gap-2 border-b border-border pb-3">
-            <span className="text-xs font-medium text-muted-foreground">Filter Status:</span>
-            <Select
-              value={statusFilter}
-              onValueChange={(val: any) => setStatusFilter(val)}
-            >
-              <SelectTrigger className="w-36">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="active">Aktif</SelectItem>
-                <SelectItem value="inactive">Nonaktif</SelectItem>
-                <SelectItem value="all">Semua</SelectItem>
-              </SelectContent>
-            </Select>
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-3 border-b border-border pb-3">
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-medium text-muted-foreground">Filter Mentor:</span>
+              <Select value={mentorFilter} onValueChange={setMentorFilter}>
+                <SelectTrigger className="w-48">
+                  <SelectValue placeholder="Semua Mentor" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Semua Mentor</SelectItem>
+                  {activeMentors.map((m) => (
+                    <SelectItem key={m.id} value={m.id}>
+                      {m.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-medium text-muted-foreground">Filter Status:</span>
+              <Select
+                value={statusFilter}
+                onValueChange={(val: any) => setStatusFilter(val)}
+              >
+                <SelectTrigger className="w-36">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="active">Aktif</SelectItem>
+                  <SelectItem value="inactive">Nonaktif</SelectItem>
+                  <SelectItem value="all">Semua</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
 
           <div className="overflow-x-auto">
