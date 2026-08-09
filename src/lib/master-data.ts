@@ -154,15 +154,15 @@ export const MASTER_BINAAN: MasterBinaan[] = [
 ];
 
 export const MASTER_INDICATORS: MasterIndicator[] = [
-  { id: 'c1000000-0000-0000-0000-000000000001', code: 'TLA', name: 'Tilawah Al-Quran (Juz)', target: 1, unit: 'juz', order_number: 1 },
-  { id: 'c1000000-0000-0000-0000-000000000002', code: 'SLD', name: 'Shalat Dhuha (Hari)', target: 5, unit: 'hari', order_number: 2 },
-  { id: 'c1000000-0000-0000-0000-000000000003', code: 'SLM', name: 'Shalat Malam / Tahajjud (Hari)', target: 2, unit: 'hari', order_number: 3 },
-  { id: 'c1000000-0000-0000-0000-000000000004', code: 'SLW', name: 'Shalat Wajib Berjamaah (Kali)', target: 25, unit: 'kali', order_number: 4 },
-  { id: 'c1000000-0000-0000-0000-000000000005', code: 'SLR', name: 'Shalat Rawatib (Kali)', target: 14, unit: 'kali', order_number: 5 },
-  { id: 'c1000000-0000-0000-0000-000000000006', code: 'ZKM', name: 'Zikir Pagi & Petang (Hari)', target: 5, unit: 'hari', order_number: 6 },
-  { id: 'c1000000-0000-0000-0000-000000000007', code: 'IFR', name: 'Infaq / Sedekah (Kali)', target: 2, unit: 'kali', order_number: 7 },
-  { id: 'c1000000-0000-0000-0000-000000000008', code: 'PSN', name: 'Puasa Sunnah (Hari)', target: 1, unit: 'hari', order_number: 8 },
-  { id: 'c1000000-0000-0000-0000-000000000009', code: 'BKL', name: 'Membaca Buku Islamic / Edukasi (Halaman)', target: 20, unit: 'halaman', order_number: 9 },
+  { id: 'c1000000-0000-0000-0000-000000000001', code: 'tahajud', name: 'Sholat Tahajud', target: 3, unit: 'kali', order_number: 1 },
+  { id: 'c1000000-0000-0000-0000-000000000002', code: 'witir', name: 'Sholat Witir', target: 3, unit: 'kali', order_number: 2 },
+  { id: 'c1000000-0000-0000-0000-000000000003', code: 'dhuha', name: 'Sholat Dhuha', target: 5, unit: 'kali', order_number: 3 },
+  { id: 'c1000000-0000-0000-0000-000000000004', code: 'rawatib', name: 'Sholat Sunnah Rawatib', target: 21, unit: 'rakaat', order_number: 4 },
+  { id: 'c1000000-0000-0000-0000-000000000005', code: 'almatsurat', name: 'Al-Matsurat', target: 7, unit: 'kali', order_number: 5 },
+  { id: 'c1000000-0000-0000-0000-000000000006', code: 'tilawah', name: 'Tilawah Quran', target: 1, unit: 'juz', order_number: 6 },
+  { id: 'c1000000-0000-0000-0000-000000000007', code: 'olahraga', name: 'Olahraga', target: 1, unit: 'kali', order_number: 7 },
+  { id: 'c1000000-0000-0000-0000-000000000008', code: 'bacabuku', name: 'Membaca Buku', target: 1, unit: 'kali', order_number: 8 },
+  { id: 'c1000000-0000-0000-0000-000000000009', code: 'infak', name: 'Infak Pekanan', target: 3, unit: 'kali', order_number: 9 },
 ];
 
 export const MASTER_PERIOD = {
