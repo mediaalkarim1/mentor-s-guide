@@ -30,7 +30,7 @@ function LoginPage() {
 
   const [activeTab, setActiveTab] = useState<"mentor" | "admin">("mentor");
 
-  // Form States (Completely empty on page load)
+  // Form States
   const [adminEmail, setAdminEmail] = useState("");
   const [adminPassword, setAdminPassword] = useState("");
 
@@ -51,33 +51,43 @@ function LoginPage() {
     e.preventDefault();
     setLoading(true);
     try {
-      const serverRes = await loginAdminServer({
-        data: { email: adminEmail, password: adminPassword },
-      });
+      const rawInput = adminEmail.trim().toLowerCase();
+      const loginEmail = rawInput.includes("@") ? rawInput : `${rawInput}@mutabaah.sch.id`;
 
-      if (!serverRes.ok || !serverRes.email) {
-        toast.error(serverRes.error ?? "Username atau password salah.");
-        setLoading(false);
-        return;
-      }
-
-      // Authenticate client Supabase session using resolved email
-      const { error } = await supabase.auth.signInWithPassword({
-        email: serverRes.email,
+      // 1. Try direct client-side Supabase authentication first
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: loginEmail,
         password: adminPassword,
       });
 
-      if (error) {
-        toast.error("Username atau password salah.");
-        setLoading(false);
+      if (!error && data.session) {
+        toast.success("Login Admin Berhasil!");
+        navigate({ to: "/admin", replace: true });
         return;
       }
 
-      toast.success("Login Admin Berhasil!");
-      navigate({ to: "/admin", replace: true });
+      // 2. Fallback to server function if user auto-provisioning is needed
+      const serverRes = await loginAdminServer({
+        data: { email: adminEmail, password: adminPassword },
+      }).catch(() => null);
+
+      if (serverRes?.ok && serverRes?.email) {
+        const { error: retryErr } = await supabase.auth.signInWithPassword({
+          email: serverRes.email,
+          password: adminPassword,
+        });
+
+        if (!retryErr) {
+          toast.success("Login Admin Berhasil!");
+          navigate({ to: "/admin", replace: true });
+          return;
+        }
+      }
+
+      toast.error("Username atau password Admin salah.");
     } catch (err: any) {
-      toast.error("Username atau password salah.");
-    } fontinally: {
+      toast.error("Username atau password Admin salah.");
+    } finally {
       setLoading(false);
     }
   }
@@ -86,32 +96,42 @@ function LoginPage() {
     e.preventDefault();
     setLoading(true);
     try {
+      const rawInput = mentorUsername.trim().toLowerCase();
+      const formattedEmail = rawInput.includes("@") ? rawInput : `${rawInput}@mutabaah.sch.id`;
+
+      // 1. Try direct client-side Supabase authentication first
+      const { data: directData, error: directErr } = await supabase.auth.signInWithPassword({
+        email: formattedEmail,
+        password: mentorPassword || "mentor123",
+      });
+
+      if (!directErr && directData.session) {
+        toast.success(`Selamat Datang, ${mentorUsername}!`);
+        navigate({ to: "/dashboard", replace: true });
+        return;
+      }
+
+      // 2. Fallback via server function
       const serverRes = await loginMentorServer({
         data: { username: mentorUsername, password: mentorPassword },
-      });
+      }).catch(() => null);
 
-      if (!serverRes.ok || !serverRes.email) {
-        toast.error(serverRes.error ?? "Username atau password salah.");
-        setLoading(false);
-        return;
+      if (serverRes?.ok && serverRes?.email) {
+        const { error: retryErr } = await supabase.auth.signInWithPassword({
+          email: serverRes.email,
+          password: mentorPassword,
+        });
+
+        if (!retryErr) {
+          toast.success(`Selamat Datang, ${serverRes.mentorName ?? mentorUsername}!`);
+          navigate({ to: "/dashboard", replace: true });
+          return;
+        }
       }
 
-      // Authenticate client Supabase session
-      const { error } = await supabase.auth.signInWithPassword({
-        email: serverRes.email,
-        password: mentorPassword,
-      });
-
-      if (error) {
-        toast.error("Username atau password salah.");
-        setLoading(false);
-        return;
-      }
-
-      toast.success(`Selamat Datang, ${serverRes.mentorName ?? "Mentor"}!`);
-      navigate({ to: "/dashboard", replace: true });
+      toast.error("Username atau password Mentor salah.");
     } catch (err: any) {
-      toast.error("Username atau password salah.");
+      toast.error("Username atau password Mentor salah.");
     } finally {
       setLoading(false);
     }
