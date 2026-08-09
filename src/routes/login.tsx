@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { Loader2, ShieldCheck, UserCheck, ArrowRight } from "lucide-react";
+import { Loader2, ShieldCheck, UserCheck } from "lucide-react";
 import { toast } from "sonner";
 import { useServerFn } from "@tanstack/react-start";
 
@@ -28,9 +28,9 @@ function LoginPage() {
   const loginAdminServer = useServerFn(loginAdminFn);
   const loginMentorServer = useServerFn(loginMentorFn);
 
-  const [activeTab, setActiveTab] = useState<"admin" | "mentor">("admin");
+  const [activeTab, setActiveTab] = useState<"mentor" | "admin">("mentor");
 
-  // Form States
+  // Form States (Completely empty on page load)
   const [adminEmail, setAdminEmail] = useState("");
   const [adminPassword, setAdminPassword] = useState("");
 
@@ -56,7 +56,7 @@ function LoginPage() {
       });
 
       if (!serverRes.ok || !serverRes.email) {
-        toast.error(serverRes.error ?? "Email atau password salah.");
+        toast.error(serverRes.error ?? "Username atau password salah.");
         setLoading(false);
         return;
       }
@@ -68,7 +68,7 @@ function LoginPage() {
       });
 
       if (error) {
-        toast.error("Email atau password salah.");
+        toast.error("Username atau password salah.");
         setLoading(false);
         return;
       }
@@ -76,7 +76,7 @@ function LoginPage() {
       toast.success("Login Admin Berhasil!");
       navigate({ to: "/admin", replace: true });
     } catch (err: any) {
-      toast.error("Email atau password salah.");
+      toast.error("Username atau password salah.");
     } finally {
       setLoading(false);
     }
@@ -125,67 +125,21 @@ function LoginPage() {
             <ShieldCheck className="h-6 w-6" />
           </div>
           <h1 className="text-2xl font-bold tracking-tight text-foreground">MUTABAAH GURU</h1>
-          <p className="text-sm text-muted-foreground">Login ke sistem Mutabaah</p>
+          <p className="text-sm text-muted-foreground">Login ke Sistem Mutabaah</p>
         </div>
 
         <div className="surface-card p-6 shadow-sm border border-border rounded-xl">
           <Tabs value={activeTab} onValueChange={(val: any) => setActiveTab(val)}>
             <TabsList className="grid w-full grid-cols-2 mb-6">
-              <TabsTrigger value="admin" className="flex items-center justify-center gap-1.5 py-2.5">
-                <ShieldCheck className="h-4 w-4" />
-                <span>Admin</span>
-              </TabsTrigger>
               <TabsTrigger value="mentor" className="flex items-center justify-center gap-1.5 py-2.5">
                 <UserCheck className="h-4 w-4" />
                 <span>Mentor</span>
               </TabsTrigger>
+              <TabsTrigger value="admin" className="flex items-center justify-center gap-1.5 py-2.5">
+                <ShieldCheck className="h-4 w-4" />
+                <span>Admin</span>
+              </TabsTrigger>
             </TabsList>
-
-            <TabsContent value="admin">
-              <form className="space-y-4" onSubmit={handleAdminLogin}>
-                <div className="space-y-1.5">
-                  <Label htmlFor="admin-email">Email Admin</Label>
-                  <Input
-                    id="admin-email"
-                    type="email"
-                    required
-                    maxLength={255}
-                    value={adminEmail}
-                    onChange={(e) => setAdminEmail(e.target.value)}
-                    placeholder="admin@mutabaah.sch.id"
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="admin-password">Password Admin</Label>
-                  <Input
-                    id="admin-password"
-                    type="password"
-                    required
-                    minLength={6}
-                    maxLength={72}
-                    value={adminPassword}
-                    onChange={(e) => setAdminPassword(e.target.value)}
-                    placeholder="Masukkan password admin"
-                  />
-                </div>
-                <Button type="submit" className="w-full font-semibold py-2.5" disabled={loading}>
-                  {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  LOGIN ADMIN
-                </Button>
-                <div className="pt-1 text-center">
-                  <button
-                    type="button"
-                    className="text-xs text-primary hover:underline font-medium"
-                    onClick={() => {
-                      setAdminEmail("admin@mutabaah.sch.id");
-                      setAdminPassword("admin123");
-                    }}
-                  >
-                    Gunakan Email & Password Demo Admin
-                  </button>
-                </div>
-              </form>
-            </TabsContent>
 
             <TabsContent value="mentor">
               <form className="space-y-4" onSubmit={handleMentorLogin}>
@@ -198,7 +152,6 @@ function LoginPage() {
                     maxLength={100}
                     value={mentorUsername}
                     onChange={(e) => setMentorUsername(e.target.value)}
-                    placeholder="abi_azam"
                   />
                 </div>
                 <div className="space-y-1.5">
@@ -211,34 +164,53 @@ function LoginPage() {
                     maxLength={72}
                     value={mentorPassword}
                     onChange={(e) => setMentorPassword(e.target.value)}
-                    placeholder="Masukkan password mentor"
                   />
                 </div>
                 <Button type="submit" className="w-full font-semibold py-2.5" disabled={loading}>
                   {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                   LOGIN MENTOR
                 </Button>
-                <div className="pt-1 text-center">
-                  <button
-                    type="button"
-                    className="text-xs text-primary hover:underline font-medium"
-                    onClick={() => {
-                      setMentorUsername("abi_azam");
-                      setMentorPassword("mentor123");
-                    }}
-                  >
-                    Gunakan Username & Password Demo (Abi Azam)
-                  </button>
+              </form>
+            </TabsContent>
+
+            <TabsContent value="admin">
+              <form className="space-y-4" onSubmit={handleAdminLogin}>
+                <div className="space-y-1.5">
+                  <Label htmlFor="admin-email">Username / Email Admin</Label>
+                  <Input
+                    id="admin-email"
+                    type="email"
+                    required
+                    maxLength={255}
+                    value={adminEmail}
+                    onChange={(e) => setAdminEmail(e.target.value)}
+                  />
                 </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="admin-password">Password Admin</Label>
+                  <Input
+                    id="admin-password"
+                    type="password"
+                    required
+                    minLength={6}
+                    maxLength={72}
+                    value={adminPassword}
+                    onChange={(e) => setAdminPassword(e.target.value)}
+                  />
+                </div>
+                <Button type="submit" className="w-full font-semibold py-2.5" disabled={loading}>
+                  {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  LOGIN ADMIN
+                </Button>
               </form>
             </TabsContent>
           </Tabs>
 
           <div className="mt-8 pt-5 border-t border-border text-center">
-            <p className="text-xs text-muted-foreground mb-2">Binaan tidak memerlukan login akun.</p>
+            <p className="text-xs text-muted-foreground mb-2">Binaan tidak memerlukan akun login.</p>
             <Link
               to="/mutabaah"
-              className="inline-flex items-center text-xs font-semibold text-primary hover:underline group"
+              className="inline-flex items-center text-xs font-semibold text-primary hover:underline"
             >
               Isi Mutabaah sebagai Binaan &rarr;
             </Link>

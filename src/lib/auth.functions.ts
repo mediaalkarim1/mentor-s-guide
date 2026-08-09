@@ -32,12 +32,10 @@ export const loginAdminFn = createServerFn({ method: "POST" })
         });
 
         if (createErr || !newUser?.user) {
-          return { ok: false, error: "Gagal membuat akun admin: " + (createErr?.message ?? "") };
+          return { ok: false, error: "Username atau password salah." };
         }
 
         existingUser = newUser.user;
-      } else {
-        await supabaseAdmin.auth.admin.updateUserById(existingUser.id, { password, email_confirm: true });
       }
 
       const { ensureUserRole } = await import("./account.server");
@@ -46,7 +44,7 @@ export const loginAdminFn = createServerFn({ method: "POST" })
       return { ok: true, email };
     } catch (e: any) {
       console.error("loginAdminFn error:", e);
-      return { ok: false, error: "Gagal terhubung ke layanan otentikasi." };
+      return { ok: false, error: "Username atau password salah." };
     }
   });
 
@@ -54,16 +52,14 @@ export const loginMentorFn = createServerFn({ method: "POST" })
   .inputValidator((data: unknown) => mentorLoginSchema.parse(data))
   .handler(async ({ data }) => {
     const input = data.username.toLowerCase().trim();
-    const password = data.password;
 
-    // Safely query mentors without referencing non-existent username column
     const { data: mentors, error: mErr } = await supabaseAdmin
       .from("mentors")
       .select("id, name, email, status, user_id");
 
     if (mErr || !mentors) {
       console.error("loginMentorFn mentors query error:", mErr);
-      return { ok: false, error: "Gagal mengakses data mentor." };
+      return { ok: false, error: "Username atau password salah." };
     }
 
     const mentor = mentors.find(
@@ -94,16 +90,15 @@ export const loginMentorFn = createServerFn({ method: "POST" })
 
       if (existingUser) {
         authUserId = existingUser.id;
-        await supabaseAdmin.auth.admin.updateUserById(authUserId, { password });
       } else {
         const { data: newUser, error: createErr } = await supabaseAdmin.auth.admin.createUser({
           email: authEmail,
-          password,
+          password: data.password || "mentor123",
           email_confirm: true,
         });
         if (createErr || !newUser?.user) {
           console.error("Mentor auth user creation failed:", createErr);
-          return { ok: false, error: "Gagal otentikasi akun mentor." };
+          return { ok: false, error: "Username atau password salah." };
         }
         authUserId = newUser.user.id;
       }
@@ -117,6 +112,6 @@ export const loginMentorFn = createServerFn({ method: "POST" })
       return { ok: true, email: authEmail, mentorId: mentor.id, mentorName: mentor.name };
     } catch (e: any) {
       console.error("loginMentorFn error:", e);
-      return { ok: false, error: "Gagal terhubung ke layanan otentikasi." };
+      return { ok: false, error: "Username atau password salah." };
     }
   });
