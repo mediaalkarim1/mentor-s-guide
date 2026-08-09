@@ -43,10 +43,8 @@ export const loginAdminFn = createServerFn({ method: "POST" })
       }
 
       // Ensure user has admin role in user_roles
-      await supabaseAdmin.from("user_roles").upsert(
-        { user_id: existingUser.id, role: "admin" },
-        { onConflict: "user_id,role" },
-      );
+      const { ensureUserRole } = await import("./account.server");
+      await ensureUserRole(existingUser.id, "admin");
 
       return { ok: true, email };
     } catch (e: any) {

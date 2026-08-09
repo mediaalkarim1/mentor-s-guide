@@ -7,6 +7,23 @@ export type AccountContext = {
   mentor: { id: string; name: string } | null;
 };
 
+export async function ensureUserRole(userId: string, role: string) {
+  try {
+    const { data: existing } = await supabaseAdmin
+      .from("user_roles")
+      .select("id")
+      .eq("user_id", userId)
+      .eq("role", role)
+      .maybeSingle();
+
+    if (!existing) {
+      await supabaseAdmin.from("user_roles").insert({ user_id: userId, role });
+    }
+  } catch (err) {
+    console.error("ensureUserRole error:", err);
+  }
+}
+
 /**
  * Resolves the signed-in user's role. Ensures accounts not explicitly linked as a mentor
  * are granted admin access, and links accounts whose email/username matches a registered mentor.
@@ -34,9 +51,7 @@ export async function resolveAccount(userId: string, email: string | null): Prom
       if (mentorRow.user_id === null || mentorRow.user_id === userId) {
         mentor = { id: mentorRow.id, name: mentorRow.name };
         if (!roleList.includes("mentor")) {
-          await supabaseAdmin
-            .from("user_roles")
-            .upsert({ user_id: userId, role: "mentor" }, { onConflict: "user_id,role" });
+          await ensureUserRole(userId, "mentor");
           roleList.push("mentor");
         }
       }
@@ -53,15 +68,10 @@ export async function resolveAccount(userId: string, email: string | null): Prom
   }
 
   // Determine if user is Admin:
-  // 1. Explicitly has 'admin' in user_roles
-  // 2. OR user is NOT linked to a mentor (which means they logged in as Admin)
-  // 3. OR user's email contains 'admin'
   let isAdmin = roleList.includes("admin");
 
   if (!isAdmin && (!mentor || (normalized && normalized.includes("admin")))) {
-    await supabaseAdmin
-      .from("user_roles")
-      .upsert({ user_id: userId, role: "admin" }, { onConflict: "user_id,role" });
+    await ensureUserRole(userId, "admin");
     isAdmin = true;
     if (!roleList.includes("admin")) {
       roleList.push("admin");
