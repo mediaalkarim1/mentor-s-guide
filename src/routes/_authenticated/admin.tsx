@@ -247,30 +247,45 @@ function MentorSection({ rows, binaan }: { rows: any[]; binaan: any[] }) {
             <table className="w-full text-left text-sm">
               <thead className="border-b border-border bg-secondary/40 text-xs font-semibold uppercase text-muted-foreground">
                 <tr>
-                  <th className="px-3 py-2 text-right w-12">No</th>
+                  <th className="px-3 py-2 text-right w-10">No</th>
                   <th className="px-3 py-2">Nama Mentor</th>
                   <th className="px-3 py-2">Email / Username</th>
-                  <th className="px-3 py-2 text-center">Jumlah Binaan</th>
+                  <th className="px-3 py-2">Daftar Binaan</th>
+                  <th className="px-3 py-2 text-center w-16">Jml</th>
                   <th className="px-3 py-2">Status</th>
                   <th className="px-3 py-2 text-right">Aksi</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
                 {rows.map((m, index) => {
-                  const binaanCount = binaan.filter(
+                  const assignedBinaan = binaan.filter(
                     (b) => b.mentor_id === m.id && b.status === "active",
-                  ).length;
+                  );
+                  const binaanCount = assignedBinaan.length;
                   const isActive = m.status === "active";
                   return (
-                    <tr key={m.id} className="hover:bg-muted/30">
+                    <tr key={m.id} className="hover:bg-muted/30 align-top">
                       <td className="px-3 py-2.5 text-right tabular-nums text-muted-foreground">
                         {index + 1}
                       </td>
-                      <td className="px-3 py-2.5 font-medium">{m.name}</td>
+                      <td className="px-3 py-2.5 font-semibold text-foreground">{m.name}</td>
                       <td className="px-3 py-2.5 text-xs text-muted-foreground">
                         {m.email ?? "tanpa email"}
                       </td>
-                      <td className="px-3 py-2.5 text-center font-semibold tabular-nums">
+                      <td className="px-3 py-2.5 text-xs">
+                        {binaanCount === 0 ? (
+                          <span className="text-muted-foreground italic">Belum ada binaan</span>
+                        ) : (
+                          <div className="flex flex-wrap gap-1 max-w-md">
+                            {assignedBinaan.map((b) => (
+                              <Badge key={b.id} variant="outline" className="text-[11px] font-normal py-0 px-1.5 bg-background">
+                                {b.name}
+                              </Badge>
+                            ))}
+                          </div>
+                        )}
+                      </td>
+                      <td className="px-3 py-2.5 text-center font-bold tabular-nums">
                         {binaanCount}
                       </td>
                       <td className="px-3 py-2.5">
@@ -294,9 +309,9 @@ function MentorSection({ rows, binaan }: { rows: any[]; binaan: any[] }) {
 
       {/* Edit Mentor Dialog */}
       <Dialog open={editingMentor !== null} onOpenChange={(open) => !open && setEditingMentor(null)}>
-        <DialogContent className="sm:max-w-[26rem]">
+        <DialogContent className="sm:max-w-[28rem]">
           <DialogHeader>
-            <DialogTitle>Edit Mentor</DialogTitle>
+            <DialogTitle>Edit Mentor: {editingMentor?.name}</DialogTitle>
           </DialogHeader>
           <form
             className="space-y-3 py-2"
@@ -343,6 +358,24 @@ function MentorSection({ rows, binaan }: { rows: any[]; binaan: any[] }) {
                 </SelectContent>
               </Select>
             </div>
+
+            {editingMentor && (
+              <div className="pt-2 border-t border-border space-y-1.5">
+                <Label className="text-xs font-semibold text-muted-foreground">
+                  Daftar Binaan Terhubung ({binaan.filter((b) => b.mentor_id === editingMentor.id && b.status === "active").length}):
+                </Label>
+                <div className="flex flex-wrap gap-1 max-h-32 overflow-y-auto p-2 rounded-md bg-muted/40 text-xs">
+                  {binaan
+                    .filter((b) => b.mentor_id === editingMentor.id && b.status === "active")
+                    .map((b) => (
+                      <Badge key={b.id} variant="secondary" className="text-[11px]">
+                        {b.name}
+                      </Badge>
+                    ))}
+                </div>
+              </div>
+            )}
+
             <DialogFooter className="pt-2">
               <Button type="button" variant="outline" onClick={() => setEditingMentor(null)}>
                 Batal
