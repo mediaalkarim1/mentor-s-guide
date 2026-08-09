@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { averageScore } from "./mutabaah-config";
+import { clearMentorOverride, getMentorOverride } from "./recap_overrides.server";
 
 type DB = SupabaseClient<any, "public", any>;
 
@@ -98,12 +99,20 @@ export async function buildMentorRecap(
   }
 
   const filled = rows.filter((r) => r.filled);
+  const calculatedAvg = averageScore(filled.map((r) => r.total));
+
+  // Check if Admin set manual override for mentor
+  const override = getMentorOverride(mentorId);
+  const finalAvg = override?.isOverride && override.manualWeeklyScore !== undefined
+    ? override.manualWeeklyScore
+    : calculatedAvg;
+
   return {
     period,
     periods,
     indicators,
     rows,
-    average: averageScore(filled.map((r) => r.total)),
+    average: finalAvg,
     filledCount: filled.length,
     missingCount: rows.length - filled.length,
   };
@@ -187,6 +196,11 @@ export type MentorSummary = {
   missing: number;
   weeklyScore: number;
   monthlyScore: number;
+  isOverride: boolean;
+  manualWeeklyScore?: number;
+  manualMonthlyScore?: number;
+  manualStatus?: string;
+  source: "Otomatis" | "Manual Admin";
 };
 
 export async function buildMentorSummaries(
@@ -217,16 +231,64 @@ export async function buildMentorSummaries(
       })
       .filter((v): v is number => v !== null);
 
+    const calcWeekly = averageScore(weekSubs.map((s: any) => Number(s.total_score)));
+    const calcMonthly = averageScore(weeklyByPeriod);
+
+    const override = getMentorOverride(m.id);
+    const isOverride = Boolean(override?.isOverride);
+
     return {
       mentorId: m.id,
       mentorName: m.name,
       binaanCount: own.length,
       filled: weekSubs.length,
       missing: Math.max(0, own.length - weekSubs.length),
-      weeklyScore: averageScore(weekSubs.map((s: any) => Number(s.total_score))),
-      monthlyScore: averageScore(weeklyByPeriod),
+      weeklyScore: isOverride && override?.manualWeeklyScore !== undefined ? override.manualWeeklyScore : calcWeekly,
+      monthlyScore: isOverride && override?.manualMonthlyScore !== undefined ? override.manualMonthlyScore : calcMonthly,
+      isOverride,
+      manualWeeklyScore: override?.manualWeeklyScore,
+      manualMonthlyScore: override?.manualMonthlyScore,
+      manualStatus: override?.manualStatus,
+      source: isOverride ? "Manual Admin" : "Otomatis",
     };
   });
+}
+
+export async function resetMentorRecapServer(
+  supabase: DB,
+  mentorId: string,
+  scope: "weekly" | "monthly" | "all",
+  periodId?: string | null,
+  monthPeriodIds?: string[],
+) {
+  // Clear manual override
+  clearMentorOverride(mentorId);
+
+  // Get all binaan for this mentor strictly filtered by mentor_id
+  const { data: binaanList } = await supabase
+    .from("binaan")
+    .select("id")
+    .eq("mentor_id", mentorId);
+
+  const binaanIds = (binaanList ?? []).map((b) => b.id);
+  if (binaanIds.length === 0) {
+    return { ok: true, resetCount: 0 };
+  }
+
+  let query = supabase.from("mutabaah_submissions").delete().in("binaan_id", binaanIds);
+
+  if (scope === "weekly" && periodId) {
+    query = query.eq("period_id", periodId);
+  } else if (scope === "monthly" && monthPeriodIds && monthPeriodIds.length > 0) {
+    query = query.in("period_id", monthPeriodIds);
+  }
+
+  const { error } = await query;
+  if (error) {
+    return { ok: false, error: error.message };
+  }
+
+  return { ok: true };
 }
 
 export async function buildExportRows(supabase: DB, periodId?: string) {

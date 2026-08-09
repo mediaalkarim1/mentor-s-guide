@@ -15,7 +15,11 @@ import {
   saveMentor,
   savePeriod,
 } from "@/lib/admin.functions";
-import { getAdminDashboard } from "@/lib/recap.functions";
+import {
+  getAdminDashboard,
+  resetMentorRecap,
+  saveMentorRecapOverride,
+} from "@/lib/recap.functions";
 import { formatPeriod } from "@/lib/mutabaah-config";
 import { ScoreBadge } from "@/components/ScoreBadge";
 import { Badge } from "@/components/ui/badge";
@@ -60,25 +64,12 @@ export const Route = createFileRoute("/_authenticated/admin")({
   component: AdminPage,
 });
 
-function AdminErrorFallback() {
-  return (
-    <div className="surface-card p-8 text-center space-y-4 max-w-md mx-auto my-12 border border-border rounded-xl">
-      <h2 className="text-lg font-bold">Akses Ditolak / Perlu Login</h2>
-      <p className="text-sm text-muted-foreground">
-        Halaman Panel Admin ini memerlukan sesi login Admin yang valid.
-      </p>
-      <div className="pt-2 flex justify-center gap-2">
-        <Link to="/login">
-          <Button variant="default">Ke Halaman Login</Button>
-        </Link>
-      </div>
-    </div>
-  );
-}
-
 function AdminPage() {
+  const queryClient = useQueryClient();
   const fetchDashboard = useServerFn(getAdminDashboard);
   const fetchData = useServerFn(getAdminData);
+  const saveOverrideFn = useServerFn(saveMentorRecapOverride);
+  const resetRecapFn = useServerFn(resetMentorRecap);
 
   const dashboard = useQuery({
     queryKey: ["admin-dashboard"],
@@ -86,6 +77,48 @@ function AdminPage() {
     retry: false,
   });
   const master = useQuery({ queryKey: ["admin-data"], queryFn: () => fetchData() });
+
+  // Recap Edit & Reset States
+  const [editingRecap, setEditingRecap] = useState<any | null>(null);
+  const [editOverrideMode, setEditOverrideMode] = useState<"auto" | "override">("auto");
+  const [editWeeklyScore, setEditWeeklyScore] = useState<string>("0");
+  const [editMonthlyScore, setEditMonthlyScore] = useState<string>("0");
+
+  const [resettingRecap, setResettingRecap] = useState<any | null>(null);
+  const [resetScope, setResetScope] = useState<"weekly" | "monthly" | "all">("weekly");
+  const [confirmingResetAll, setConfirmingResetAll] = useState(false);
+
+  const saveOverrideMut = useMutation({
+    mutationFn: (data: any) => saveOverrideFn({ data }),
+    onSuccess: (res: any) => {
+      if (res?.ok === false) {
+        toast.error(res.error ?? "Gagal menyimpan override.");
+        return;
+      }
+      toast.success("Override rekap mentor berhasil disimpan.");
+      queryClient.invalidateQueries({ queryKey: ["admin-dashboard"] });
+      queryClient.invalidateQueries({ queryKey: ["mentor-recap"] });
+      setEditingRecap(null);
+    },
+    onError: () => toast.error("Gagal menyimpan override."),
+  });
+
+  const resetRecapMut = useMutation({
+    mutationFn: (data: any) => resetRecapFn({ data }),
+    onSuccess: (res: any) => {
+      if (res?.ok === false) {
+        toast.error(res.error ?? "Gagal mereset rekap.");
+        return;
+      }
+      toast.success("Rekap mentor berhasil di-reset.");
+      queryClient.invalidateQueries({ queryKey: ["admin-dashboard"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-data"] });
+      queryClient.invalidateQueries({ queryKey: ["mentor-recap"] });
+      setResettingRecap(null);
+      setConfirmingResetAll(false);
+    },
+    onError: () => toast.error("Gagal mereset rekap."),
+  });
 
   if (dashboard.isLoading || master.isLoading) {
     return (
@@ -98,13 +131,13 @@ function AdminPage() {
   if (dashboard.isError) {
     return (
       <div className="surface-card p-8 text-center space-y-4 max-w-md mx-auto my-12 border border-border rounded-xl">
-        <h2 className="text-lg font-bold">Akses Ditolak</h2>
+        <h2 className="text-lg font-bold">Akses Ditolak / Perlu Login</h2>
         <p className="text-sm text-muted-foreground">
-          Halaman Panel Admin ini khusus untuk akun Admin. Akun Anda terdaftar sebagai Mentor.
+          Halaman Panel Admin ini memerlukan sesi login Admin yang valid.
         </p>
         <div className="pt-2 flex justify-center gap-2">
-          <Link to="/dashboard">
-            <Button variant="default">Ke Dashboard Mentor</Button>
+          <Link to="/login">
+            <Button variant="default">Ke Halaman Login</Button>
           </Link>
         </div>
       </div>
@@ -112,11 +145,9 @@ function AdminPage() {
   }
 
   const d = dashboard.data;
-
-  if (!d || !d.stats) {
+  if (!d) {
     return (
-      <div className="flex flex-col items-center justify-center py-20 text-muted-foreground space-y-4">
-        <Loader2 className="h-6 w-6 animate-spin text-primary" />
+      <div className="flex items-center justify-center py-20 text-muted-foreground">
         <p className="text-sm">Menyiapkan data panel admin...</p>
       </div>
     );
@@ -143,7 +174,7 @@ function AdminPage() {
 
       <div className="surface-card overflow-x-auto">
         <h2 className="border-b border-border px-4 py-3 text-base font-semibold">Rekap Mentor</h2>
-        <table className="w-full min-w-[40rem] text-sm">
+        <table className="w-full min-w-[50rem] text-sm">
           <thead className="bg-secondary/60 text-left text-xs uppercase tracking-wide text-muted-foreground">
             <tr>
               <th className="px-4 py-3">Mentor</th>
@@ -153,19 +184,64 @@ function AdminPage() {
               <th className="px-4 py-3 text-center">Pekanan</th>
               <th className="px-4 py-3 text-center">Bulanan</th>
               <th className="px-4 py-3">Status</th>
+              <th className="px-4 py-3 text-center">Aksi</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-border">
             {d.summaries.map((s) => (
-              <tr key={s.mentorId}>
+              <tr key={s.mentorId} className="hover:bg-secondary/40">
                 <td className="px-4 py-3 font-medium">{s.mentorName}</td>
                 <td className="px-4 py-3 text-center tabular-nums">{s.binaanCount}</td>
                 <td className="px-4 py-3 text-center tabular-nums">{s.filled}</td>
                 <td className="px-4 py-3 text-center tabular-nums">{s.missing}</td>
-                <td className="px-4 py-3 text-center font-semibold tabular-nums">{s.weeklyScore}</td>
-                <td className="px-4 py-3 text-center tabular-nums">{s.monthlyScore}</td>
+                <td className="px-4 py-3 text-center tabular-nums">
+                  <div className="font-semibold">{s.weeklyScore}</div>
+                  <div className="text-[10px] leading-none mt-0.5 font-normal">
+                    {s.isOverride ? (
+                      <span className="text-amber-600 font-medium dark:text-amber-400">Manual Admin</span>
+                    ) : (
+                      <span className="text-emerald-600 dark:text-emerald-400">Otomatis</span>
+                    )}
+                  </div>
+                </td>
+                <td className="px-4 py-3 text-center tabular-nums">
+                  <div>{s.monthlyScore}</div>
+                  <div className="text-[10px] leading-none mt-0.5 font-normal">
+                    {s.isOverride ? (
+                      <span className="text-amber-600 font-medium dark:text-amber-400">Manual Admin</span>
+                    ) : (
+                      <span className="text-emerald-600 dark:text-emerald-400">Otomatis</span>
+                    )}
+                  </div>
+                </td>
                 <td className="px-4 py-3">
                   <ScoreBadge score={s.weeklyScore} />
+                </td>
+                <td className="px-4 py-3 text-center space-x-1.5 whitespace-nowrap">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-7 px-2.5 text-xs font-medium"
+                    onClick={() => {
+                      setEditingRecap(s);
+                      setEditOverrideMode(s.isOverride ? "override" : "auto");
+                      setEditWeeklyScore(String(s.weeklyScore ?? 0));
+                      setEditMonthlyScore(String(s.monthlyScore ?? 0));
+                    }}
+                  >
+                    Edit
+                  </Button>
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    className="h-7 px-2.5 text-xs font-medium"
+                    onClick={() => {
+                      setResettingRecap(s);
+                      setResetScope("weekly");
+                    }}
+                  >
+                    Reset
+                  </Button>
                 </td>
               </tr>
             ))}
@@ -194,11 +270,235 @@ function AdminPage() {
           <PeriodSection rows={master.data?.periods ?? []} />
         </TabsContent>
       </Tabs>
+
+      {/* Edit Rekap Mentor Dialog */}
+      <Dialog open={editingRecap !== null} onOpenChange={(open) => !open && setEditingRecap(null)}>
+        <DialogContent className="sm:max-w-[28rem]">
+          <DialogHeader>
+            <DialogTitle>EDIT REKAP MENTOR</DialogTitle>
+          </DialogHeader>
+          {editingRecap && (
+            <form
+              className="space-y-4 py-2 text-sm"
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (!editingRecap) return;
+                saveOverrideMut.mutate({
+                  mentorId: editingRecap.mentorId,
+                  isOverride: editOverrideMode === "override",
+                  manualWeeklyScore: Number(editWeeklyScore) || 0,
+                  manualMonthlyScore: Number(editMonthlyScore) || 0,
+                });
+              }}
+            >
+              <div className="grid grid-cols-2 gap-2 text-xs surface-card p-3 rounded-md border border-border">
+                <div><span className="text-muted-foreground">Mentor:</span> <span className="font-semibold">{editingRecap.mentorName}</span></div>
+                <div><span className="text-muted-foreground">Binaan:</span> <span className="font-semibold">{editingRecap.binaanCount}</span></div>
+                <div><span className="text-muted-foreground">Sudah:</span> <span className="font-semibold">{editingRecap.filled}</span></div>
+                <div><span className="text-muted-foreground">Belum:</span> <span className="font-semibold">{editingRecap.missing}</span></div>
+              </div>
+
+              <div className="space-y-2">
+                <Label className="text-xs font-semibold">Mode Penilaian Rekap</Label>
+                <div className="space-y-2 text-xs">
+                  <label className="flex items-center gap-2 cursor-pointer p-2 border border-border rounded-md hover:bg-secondary/40">
+                    <input
+                      type="radio"
+                      name="overrideMode"
+                      value="auto"
+                      checked={editOverrideMode === "auto"}
+                      onChange={() => setEditOverrideMode("auto")}
+                    />
+                    <div>
+                      <p className="font-medium">Gunakan Hasil Otomatis</p>
+                      <p className="text-[11px] text-muted-foreground">Perhitungan nilai dihitung otomatis dari submission data Mutabaah.</p>
+                    </div>
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer p-2 border border-border rounded-md hover:bg-secondary/40">
+                    <input
+                      type="radio"
+                      name="overrideMode"
+                      value="override"
+                      checked={editOverrideMode === "override"}
+                      onChange={() => setEditOverrideMode("override")}
+                    />
+                    <div>
+                      <p className="font-medium">Override oleh Admin</p>
+                      <p className="text-[11px] text-muted-foreground">Nilai rekap ditentukan secara manual oleh Admin.</p>
+                    </div>
+                  </label>
+                </div>
+              </div>
+
+              {editOverrideMode === "override" && (
+                <div className="space-y-3 pt-2 border-t border-border">
+                  <div className="space-y-1">
+                    <Label htmlFor="manual-weekly">Nilai Pekanan Manual (0-100)</Label>
+                    <Input
+                      id="manual-weekly"
+                      type="number"
+                      min={0}
+                      max={100}
+                      step={0.01}
+                      value={editWeeklyScore}
+                      onChange={(e) => setEditWeeklyScore(e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label htmlFor="manual-monthly">Nilai Bulanan Manual (0-100)</Label>
+                    <Input
+                      id="manual-monthly"
+                      type="number"
+                      min={0}
+                      max={100}
+                      step={0.01}
+                      value={editMonthlyScore}
+                      onChange={(e) => setEditMonthlyScore(e.target.value)}
+                    />
+                  </div>
+                </div>
+              )}
+
+              <DialogFooter className="pt-2">
+                <Button type="button" variant="outline" onClick={() => setEditingRecap(null)}>
+                  Batal
+                </Button>
+                <Button type="submit" disabled={saveOverrideMut.isPending}>
+                  {saveOverrideMut.isPending && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />}
+                  Simpan Perubahan
+                </Button>
+              </DialogFooter>
+            </form>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Reset Rekap Mentor Dialog */}
+      <Dialog open={resettingRecap !== null} onOpenChange={(open) => !open && setResettingRecap(null)}>
+        <DialogContent className="sm:max-w-[28rem]">
+          <DialogHeader>
+            <DialogTitle className="text-destructive font-bold">RESET REKAP MENTOR</DialogTitle>
+          </DialogHeader>
+          {resettingRecap && (
+            <div className="space-y-4 py-2 text-sm">
+              <div className="surface-card p-3 rounded-md border border-border text-xs space-y-1">
+                <p><span className="text-muted-foreground">Mentor:</span> <span className="font-semibold">{resettingRecap.mentorName}</span></p>
+                <p><span className="text-muted-foreground">Binaan Terhubung:</span> <span className="font-semibold">{resettingRecap.binaanCount} orang</span></p>
+              </div>
+
+              <div className="space-y-2">
+                <Label className="text-xs font-semibold">Pilih Periode Reset</Label>
+                <div className="space-y-2 text-xs">
+                  <label className="flex items-center gap-2 cursor-pointer p-2 border border-border rounded-md hover:bg-secondary/40">
+                    <input
+                      type="radio"
+                      name="resetScope"
+                      value="weekly"
+                      checked={resetScope === "weekly"}
+                      onChange={() => setResetScope("weekly")}
+                    />
+                    <div>
+                      <p className="font-medium">Reset Mingguan (Pekan Ini)</p>
+                      <p className="text-[11px] text-muted-foreground">Mengembalikan nilai pekanan ke otomatis / 0 untuk pekan ini saja.</p>
+                    </div>
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer p-2 border border-border rounded-md hover:bg-secondary/40">
+                    <input
+                      type="radio"
+                      name="resetScope"
+                      value="monthly"
+                      checked={resetScope === "monthly"}
+                      onChange={() => setResetScope("monthly")}
+                    />
+                    <div>
+                      <p className="font-medium">Reset Bulanan (Bulan Ini)</p>
+                      <p className="text-[11px] text-muted-foreground">Mereset rekap mutabaah bulan berjalan untuk mentor ini.</p>
+                    </div>
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer p-2 border border-border rounded-md hover:bg-secondary/40">
+                    <input
+                      type="radio"
+                      name="resetScope"
+                      value="all"
+                      checked={resetScope === "all"}
+                      onChange={() => setResetScope("all")}
+                    />
+                    <div>
+                      <p className="font-medium text-destructive">Reset Semua Rekap</p>
+                      <p className="text-[11px] text-muted-foreground">Mereset seluruh data rekap mutabaah mentor & binaannya.</p>
+                    </div>
+                  </label>
+                </div>
+              </div>
+
+              <div className="p-3 bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-200 rounded-md text-xs space-y-1 border border-amber-200 dark:border-amber-800">
+                <p className="font-semibold">✓ Yang TIDAK akan terhapus:</p>
+                <p className="text-[11px]">Akun Mentor, Data Binaan, Mapping Mentor-Binaan, dan Riwayat Identitas tetap 100% aman.</p>
+              </div>
+
+              <DialogFooter className="pt-2">
+                <Button variant="outline" onClick={() => setResettingRecap(null)}>
+                  Batal
+                </Button>
+                <Button
+                  variant="destructive"
+                  onClick={() => {
+                    if (resetScope === "all") {
+                      setConfirmingResetAll(true);
+                    } else {
+                      resetRecapMut.mutate({
+                        mentorId: resettingRecap.mentorId,
+                        scope: resetScope,
+                        periodId: d.period?.id,
+                      });
+                    }
+                  }}
+                  disabled={resetRecapMut.isPending}
+                >
+                  {resetRecapMut.isPending && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />}
+                  Reset Rekap
+                </Button>
+              </DialogFooter>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Double Confirmation AlertDialog for Reset All */}
+      <AlertDialog open={confirmingResetAll} onOpenChange={setConfirmingResetAll}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-destructive font-bold">PERINGATAN KERAS — CONFIRM RESET ALL</AlertDialogTitle>
+            <AlertDialogDescription>
+              Apakah Anda benar-benar yakin ingin mereset seluruh rekap data Mutabaah untuk Mentor{" "}
+              <strong className="text-foreground">{resettingRecap?.mentorName}</strong> ({resettingRecap?.binaanCount} Binaan)?
+              <br /><br />
+              Seluruh data rekap mutabaah akan dibersihkan, tetapi akun Mentor dan daftar Binaan TIDAK AKAN terhapus.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Batal</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
+              onClick={() => {
+                if (!resettingRecap) return;
+                resetRecapMut.mutate({
+                  mentorId: resettingRecap.mentorId,
+                  scope: "all",
+                  periodId: d.period?.id,
+                });
+              }}
+            >
+              Ya, Reset Seluruh Rekap
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
 
-function Stat({ label, value }: { label: string; value: number }) {
+function Stat({ label, value }: { label: string | number; value: number }) {
   return (
     <div className="surface-card p-4">
       <p className="text-xs text-muted-foreground">{label}</p>
@@ -226,8 +526,8 @@ function useSaver(fn: any, keys: string[]) {
 
 function Panel({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="surface-card p-4">
-      <h3 className="mb-3 text-sm font-semibold">{title}</h3>
+    <div className="surface-card p-4 space-y-4">
+      <h2 className="text-base font-semibold">{title}</h2>
       {children}
     </div>
   );
@@ -236,6 +536,8 @@ function Panel({ title, children }: { title: string; children: React.ReactNode }
 function MentorSection({ rows, binaan }: { rows: any[]; binaan: any[] }) {
   const queryClient = useQueryClient();
   const save = useSaver(saveMentor, ["admin-data", "admin-dashboard", "admin-mentors"]);
+  const del = useSaver(deleteMentor, ["admin-data", "admin-dashboard", "admin-mentors"]);
+
   const [name, setName] = useState("");
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
@@ -249,22 +551,20 @@ function MentorSection({ rows, binaan }: { rows: any[]; binaan: any[] }) {
   const [editStatus, setEditStatus] = useState<"active" | "inactive">("active");
 
   const [viewingMentor, setViewingMentor] = useState<any | null>(null);
-
-  const deleteMentorFn = useServerFn(deleteMentor);
   const [deletingMentor, setDeletingMentor] = useState<any | null>(null);
 
-  const deleteMentorMutation = useMutation({
-    mutationFn: (id: string) => deleteMentorFn({ data: { id } }),
+  const deleteMentorMut = useMutation({
+    mutationFn: (id: string) => del.mutateAsync({ id }),
     onSuccess: (res: any) => {
       if (res?.ok === false) {
         toast.error(res.error ?? "Gagal menghapus mentor.");
         return;
       }
-      toast.success(
-        res?.mode === "soft"
-          ? "Mentor dinonaktifkan (karena memiliki binaan terhubung)."
-          : "Mentor berhasil dihapus.",
-      );
+      if (res?.mode === "soft") {
+        toast.success("Mentor dinonaktifkan karena masih memiliki binaan.");
+      } else {
+        toast.success("Mentor berhasil dihapus.");
+      }
       queryClient.invalidateQueries({ queryKey: ["admin-data"] });
       queryClient.invalidateQueries({ queryKey: ["admin-dashboard"] });
       queryClient.invalidateQueries({ queryKey: ["admin-mentors"] });
@@ -305,102 +605,106 @@ function MentorSection({ rows, binaan }: { rows: any[]; binaan: any[] }) {
           >
             <div className="space-y-1.5">
               <Label htmlFor="m-name">Nama Mentor</Label>
-              <Input id="m-name" required maxLength={100} value={name} onChange={(e) => setName(e.target.value)} />
+              <Input
+                id="m-name"
+                required
+                maxLength={100}
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="contoh: Abi Azam"
+              />
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="m-username">Username (login mentor)</Label>
-              <Input id="m-username" maxLength={50} value={username} onChange={(e) => setUsername(e.target.value)} placeholder="contoh: abi_azam" />
+              <Input
+                id="m-username"
+                maxLength={50}
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                placeholder="contoh: abi_azam"
+              />
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="m-email">Email (opsional)</Label>
-              <Input id="m-email" type="email" maxLength={255} value={email} onChange={(e) => setEmail(e.target.value)} />
+              <Input
+                id="m-email"
+                type="email"
+                maxLength={255}
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="contoh: azam@mutabaah.sch.id"
+              />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="m-password">Password (opsional)</Label>
-              <Input id="m-password" type="password" maxLength={72} value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Password login mentor" />
+              <Label htmlFor="m-password">Password Baru</Label>
+              <Input
+                id="m-password"
+                type="password"
+                maxLength={72}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Password login mentor"
+              />
             </div>
-            <Button type="submit" className="w-full" disabled={save.isPending}>
-              Simpan
+            <Button type="submit" disabled={save.isPending} className="w-full">
+              {save.isPending && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />}
+              Simpan Mentor
             </Button>
           </form>
         </Panel>
-        <Panel title="Data Mentor">
+
+        <Panel title="Daftar Mentor Master">
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
               <thead className="border-b border-border bg-secondary/40 text-xs font-semibold uppercase text-muted-foreground">
                 <tr>
-                  <th className="px-3 py-2 text-right w-10">No</th>
-                  <th className="px-3 py-2">Nama Mentor</th>
-                  <th className="px-3 py-2">Username / Email</th>
-                  <th className="px-3 py-2">Daftar Binaan</th>
-                  <th className="px-3 py-2 text-center w-16">Jml</th>
+                  <th className="px-3 py-2 text-right w-12">No</th>
+                  <th className="px-3 py-2">Nama</th>
+                  <th className="px-3 py-2">Username</th>
+                  <th className="px-3 py-2">Binaan</th>
                   <th className="px-3 py-2">Status</th>
                   <th className="px-3 py-2 text-right">Aksi</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
-                {rows.map((m, index) => {
-                  const assignedBinaan = binaan.filter(
-                    (b) => b.mentor_id === m.id && b.status === "active",
-                  );
-                  const binaanCount = assignedBinaan.length;
-                  const isActive = m.status === "active";
+                {rows.map((m, i) => {
+                  const count = binaan.filter((b) => b.mentor_id === m.id).length;
                   return (
-                    <tr key={m.id} className="hover:bg-muted/30 align-top">
-                      <td className="px-3 py-2.5 text-right tabular-nums text-muted-foreground">
-                        {index + 1}
+                    <tr key={m.id} className="hover:bg-secondary/20">
+                      <td className="px-3 py-2 text-right tabular-nums text-muted-foreground text-xs">
+                        {i + 1}
                       </td>
-                      <td className="px-3 py-2.5">
+                      <td className="px-3 py-2 font-medium">{m.name}</td>
+                      <td className="px-3 py-2 text-xs text-muted-foreground">
+                        {m.username ?? (m.email ? m.email.split("@")[0] : "-")}
+                      </td>
+                      <td className="px-3 py-2 tabular-nums">
                         <button
                           type="button"
-                          className="font-semibold text-primary hover:underline text-left"
                           onClick={() => setViewingMentor(m)}
+                          className="inline-flex items-center gap-1 font-semibold text-primary hover:underline cursor-pointer"
                         >
-                          {m.name}
+                          <span>{count} orang</span>
                         </button>
                       </td>
-                      <td className="px-3 py-2.5 text-xs text-muted-foreground">
-                        <div className="font-mono text-foreground font-medium">{m.username ? `@${m.username}` : "-"}</div>
-                        {m.email && <div className="text-[11px] text-muted-foreground">{m.email}</div>}
-                      </td>
-                      <td className="px-3 py-2.5 text-xs">
-                        {binaanCount === 0 ? (
-                          <span className="text-muted-foreground italic">Belum ada binaan</span>
-                        ) : (
-                          <div className="flex flex-wrap gap-1 max-w-md">
-                            {assignedBinaan.map((b) => (
-                              <Badge key={b.id} variant="outline" className="text-[11px] font-normal py-0 px-1.5 bg-background">
-                                {b.name}
-                              </Badge>
-                            ))}
-                          </div>
-                        )}
-                      </td>
-                      <td className="px-3 py-2.5 text-center font-bold tabular-nums">
-                        <button
-                          type="button"
-                          className="hover:underline text-primary"
-                          onClick={() => setViewingMentor(m)}
-                        >
-                          {binaanCount}
-                        </button>
-                      </td>
-                      <td className="px-3 py-2.5">
-                        <Badge variant={isActive ? "default" : "secondary"}>
-                          {isActive ? "Aktif" : "Nonaktif"}
+                      <td className="px-3 py-2">
+                        <Badge variant={m.status === "active" ? "default" : "secondary"} className="text-xs">
+                          {m.status === "active" ? "Aktif" : "Nonaktif"}
                         </Badge>
                       </td>
-                      <td className="px-3 py-2.5 text-right space-x-1 whitespace-nowrap">
-                        <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => setViewingMentor(m)}>
-                          Detail
-                        </Button>
-                        <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => openEditModal(m)}>
+                      <td className="px-3 py-2 text-right space-x-1 whitespace-nowrap">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 px-2 text-xs"
+                          onClick={() => openEditModal(m)}
+                        >
                           Edit
                         </Button>
                         <Button
+                          variant="ghost"
                           size="sm"
-                          variant="destructive"
-                          className="h-7 text-xs"
+                          className="h-7 px-2 text-xs text-destructive hover:text-destructive"
                           onClick={() => setDeletingMentor(m)}
                         >
                           Hapus
@@ -538,29 +842,12 @@ function MentorSection({ rows, binaan }: { rows: any[]; binaan: any[] }) {
                 </SelectContent>
               </Select>
             </div>
-
-            {editingMentor && (
-              <div className="pt-2 border-t border-border space-y-1.5">
-                <Label className="text-xs font-semibold text-muted-foreground">
-                  Daftar Binaan Terhubung ({binaan.filter((b) => b.mentor_id === editingMentor.id && b.status === "active").length}):
-                </Label>
-                <div className="flex flex-wrap gap-1 max-h-32 overflow-y-auto p-2 rounded-md bg-muted/40 text-xs">
-                  {binaan
-                    .filter((b) => b.mentor_id === editingMentor.id && b.status === "active")
-                    .map((b) => (
-                      <Badge key={b.id} variant="secondary" className="text-[11px]">
-                        {b.name}
-                      </Badge>
-                    ))}
-                </div>
-              </div>
-            )}
-
             <DialogFooter className="pt-2">
               <Button type="button" variant="outline" onClick={() => setEditingMentor(null)}>
                 Batal
               </Button>
               <Button type="submit" disabled={save.isPending}>
+                {save.isPending && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />}
                 Simpan Perubahan
               </Button>
             </DialogFooter>
@@ -568,28 +855,23 @@ function MentorSection({ rows, binaan }: { rows: any[]; binaan: any[] }) {
         </DialogContent>
       </Dialog>
 
-      {/* Delete Mentor Confirmation Modal */}
+      {/* Delete Mentor Confirmation AlertDialog */}
       <AlertDialog open={deletingMentor !== null} onOpenChange={(open) => !open && setDeletingMentor(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Hapus Mentor?</AlertDialogTitle>
+            <AlertDialogTitle>Hapus Mentor {deletingMentor?.name}?</AlertDialogTitle>
             <AlertDialogDescription>
-              Apakah Anda yakin ingin menghapus mentor <strong>{deletingMentor?.name}</strong>? Jika mentor ini memiliki binaan terhubung, status mentor akan diubah menjadi <strong>Nonaktif</strong> untuk menjaga integritas data.
+              Jika mentor ini masih memiliki data binaan, sistem akan secara otomatis mengubah statusnya menjadi
+              <strong> nonaktif</strong> (soft delete) untuk melindungi integritas data binaan.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => setDeletingMentor(null)}>
-              Batal
-            </AlertDialogCancel>
+            <AlertDialogCancel>Batal</AlertDialogCancel>
             <AlertDialogAction
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-              onClick={() => {
-                if (deletingMentor) {
-                  deleteMentorMutation.mutate(deletingMentor.id);
-                }
-              }}
+              className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
+              onClick={() => deletingMentor && deleteMentorMut.mutate(deletingMentor.id)}
             >
-              {deleteMentorMutation.isPending ? "Menghapus..." : "Hapus"}
+              Hapus / Nonaktifkan
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -600,96 +882,42 @@ function MentorSection({ rows, binaan }: { rows: any[]; binaan: any[] }) {
 
 function BinaanSection({ rows, mentors }: { rows: any[]; mentors: any[] }) {
   const queryClient = useQueryClient();
-  const save = useSaver(saveBinaan, ["admin-data", "admin-dashboard", "mentor-recap"]);
+  const save = useSaver(saveBinaan, ["admin-data", "admin-dashboard", "admin-mentors"]);
+  const del = useSaver(deleteBinaan, ["admin-data", "admin-dashboard", "admin-mentors"]);
+  const restore = useSaver(restoreBinaan, ["admin-data", "admin-dashboard", "admin-mentors"]);
 
-  const deleteFn = useServerFn(deleteBinaan);
-  const deleteMutation = useMutation({
-    mutationFn: (id: string) => deleteFn({ data: { id } }),
+  const [name, setName] = useState("");
+  const [mentorId, setMentorId] = useState<string>("");
+
+  const [editingBinaan, setEditingBinaan] = useState<any | null>(null);
+  const [editName, setEditName] = useState("");
+  const [editMentorId, setEditMentorId] = useState("");
+
+  const [deletingBinaan, setDeletingBinaan] = useState<any | null>(null);
+
+  const deleteBinaanMut = useMutation({
+    mutationFn: (id: string) => del.mutateAsync({ id }),
     onSuccess: (res: any) => {
       if (res?.ok === false) {
         toast.error(res.error ?? "Gagal menghapus binaan.");
         return;
       }
-      toast.success(
-        res?.mode === "soft"
-          ? "Binaan dinonaktifkan (histori mutabaah tetap tersimpan)."
-          : "Binaan berhasil dihapus.",
-      );
+      if (res?.mode === "soft") {
+        toast.success("Binaan dinonaktifkan karena memiliki riwayat mutabaah.");
+      } else {
+        toast.success("Binaan berhasil dihapus.");
+      }
       queryClient.invalidateQueries({ queryKey: ["admin-data"] });
       queryClient.invalidateQueries({ queryKey: ["admin-dashboard"] });
-      queryClient.invalidateQueries({ queryKey: ["mentor-recap"] });
       setDeletingBinaan(null);
     },
     onError: () => toast.error("Gagal menghapus binaan."),
   });
 
-  const restoreFn = useServerFn(restoreBinaan);
-  const restoreMutation = useMutation({
-    mutationFn: (data: { id: string; mentor_id?: string }) => restoreFn({ data }),
-    onSuccess: (res: any) => {
-      if (res?.ok === false) {
-        toast.error(res.error ?? "Gagal mengaktifkan kembali binaan.");
-        return;
-      }
-      toast.success("Binaan berhasil diaktifkan kembali.");
-      queryClient.invalidateQueries({ queryKey: ["admin-data"] });
-      queryClient.invalidateQueries({ queryKey: ["admin-dashboard"] });
-      queryClient.invalidateQueries({ queryKey: ["mentor-recap"] });
-      setRestoringBinaan(null);
-    },
-    onError: () => toast.error("Gagal mengaktifkan kembali binaan."),
-  });
-
-  // State for Add form
-  const [name, setName] = useState("");
-  const [mentorId, setMentorId] = useState("");
-  const [phone, setPhone] = useState("");
-
-  // State for Filter Mentor: "all" | mentorId
-  const [mentorFilter, setMentorFilter] = useState<string>("all");
-
-  // State for Filter Status: "active" (default) | "inactive" | "all"
-  const [statusFilter, setStatusFilter] = useState<"active" | "inactive" | "all">("active");
-
-  // Edit Modal State
-  const [editingBinaan, setEditingBinaan] = useState<any | null>(null);
-  const [editName, setEditName] = useState("");
-  const [editPhone, setEditPhone] = useState("");
-  const [editMentorId, setEditMentorId] = useState("");
-  const [editStatus, setEditStatus] = useState<"active" | "inactive">("active");
-
-  // Delete Dialog State
-  const [deletingBinaan, setDeletingBinaan] = useState<any | null>(null);
-
-  // Restore Modal State (when mentor is inactive)
-  const [restoringBinaan, setRestoringBinaan] = useState<any | null>(null);
-  const [restoreMentorId, setRestoreMentorId] = useState("");
-
-  const activeMentors = mentors.filter((m) => m.status === "active");
-
-  const filteredRows = rows.filter((b) => {
-    if (statusFilter === "active" && b.status !== "active") return false;
-    if (statusFilter === "inactive" && b.status === "active") return false;
-    if (mentorFilter !== "all" && b.mentor_id !== mentorFilter) return false;
-    return true;
-  });
-
   const openEditModal = (b: any) => {
     setEditingBinaan(b);
     setEditName(b.name);
-    setEditPhone(b.phone ?? "");
-    setEditMentorId(b.mentor_id);
-    setEditStatus(b.status === "active" ? "active" : "inactive");
-  };
-
-  const handleStartRestore = (b: any) => {
-    const currentMentor = mentors.find((m) => m.id === b.mentor_id);
-    if (currentMentor && currentMentor.status === "active") {
-      restoreMutation.mutate({ id: b.id });
-    } else {
-      setRestoringBinaan(b);
-      setRestoreMentorId(activeMentors[0]?.id ?? "");
-    }
+    setEditMentorId(b.mentor_id ?? "");
   };
 
   return (
@@ -704,9 +932,8 @@ function BinaanSection({ rows, mentors }: { rows: any[]; mentors: any[] }) {
                 toast.error("Pilih mentor terlebih dahulu.");
                 return;
               }
-              save.mutate({ name, mentor_id: mentorId, phone: phone || null, status: "active" });
+              save.mutate({ name, mentor_id: mentorId, status: "active" });
               setName("");
-              setPhone("");
             }}
           >
             <div className="space-y-1.5">
@@ -717,16 +944,17 @@ function BinaanSection({ rows, mentors }: { rows: any[]; mentors: any[] }) {
                 maxLength={100}
                 value={name}
                 onChange={(e) => setName(e.target.value)}
+                placeholder="contoh: Abi Erle"
               />
             </div>
             <div className="space-y-1.5">
-              <Label>Mentor</Label>
-              <Select value={mentorId} onValueChange={setMentorId}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Pilih mentor" />
+              <Label htmlFor="b-mentor">Mentor</Label>
+              <Select value={mentorId} onValueChange={(val: any) => setMentorId(val)}>
+                <SelectTrigger id="b-mentor">
+                  <SelectValue placeholder="Pilih Mentor" />
                 </SelectTrigger>
                 <SelectContent>
-                  {activeMentors.map((m) => (
+                  {mentors.map((m) => (
                     <SelectItem key={m.id} value={m.id}>
                       {m.name}
                     </SelectItem>
@@ -734,131 +962,76 @@ function BinaanSection({ rows, mentors }: { rows: any[]; mentors: any[] }) {
                 </SelectContent>
               </Select>
             </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="b-phone">No. HP (opsional)</Label>
-              <Input
-                id="b-phone"
-                maxLength={30}
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-              />
-            </div>
-            <Button type="submit" className="w-full" disabled={save.isPending}>
-              Simpan
+            <Button type="submit" disabled={save.isPending} className="w-full">
+              {save.isPending && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />}
+              Simpan Binaan
             </Button>
           </form>
         </Panel>
 
-        <Panel title="Data Binaan">
-          <div className="mb-4 flex flex-wrap items-center justify-between gap-3 border-b border-border pb-3">
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-medium text-muted-foreground">Filter Mentor:</span>
-              <Select value={mentorFilter} onValueChange={setMentorFilter}>
-                <SelectTrigger className="w-48">
-                  <SelectValue placeholder="Semua Mentor" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Semua Mentor</SelectItem>
-                  {activeMentors.map((m) => (
-                    <SelectItem key={m.id} value={m.id}>
-                      {m.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-medium text-muted-foreground">Filter Status:</span>
-              <Select
-                value={statusFilter}
-                onValueChange={(val: any) => setStatusFilter(val)}
-              >
-                <SelectTrigger className="w-36">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="active">Aktif</SelectItem>
-                  <SelectItem value="inactive">Nonaktif</SelectItem>
-                  <SelectItem value="all">Semua</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
+        <Panel title="Daftar Binaan Master">
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
               <thead className="border-b border-border bg-secondary/40 text-xs font-semibold uppercase text-muted-foreground">
                 <tr>
                   <th className="px-3 py-2 text-right w-12">No</th>
                   <th className="px-3 py-2">Nama Binaan</th>
-                  <th className="px-3 py-2">No. HP</th>
                   <th className="px-3 py-2">Mentor</th>
                   <th className="px-3 py-2">Status</th>
                   <th className="px-3 py-2 text-right">Aksi</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
-                {filteredRows.length === 0 ? (
-                  <tr>
-                    <td colSpan={6} className="py-6 text-center text-xs text-muted-foreground">
-                      Tidak ada data binaan.
-                    </td>
-                  </tr>
-                ) : (
-                  filteredRows.map((b, index) => {
-                    const mentorObj = mentors.find((m) => m.id === b.mentor_id);
-                    const isActive = b.status === "active";
-                    return (
-                      <tr key={b.id} className="hover:bg-muted/30">
-                        <td className="px-3 py-2.5 text-right tabular-nums text-muted-foreground">
-                          {index + 1}
-                        </td>
-                        <td className="px-3 py-2.5 font-medium">{b.name}</td>
-                        <td className="px-3 py-2.5 text-xs text-muted-foreground">
-                          {b.phone ?? "-"}
-                        </td>
-                        <td className="px-3 py-2.5 text-xs">
-                          {mentorObj?.name ?? "-"}
-                        </td>
-                        <td className="px-3 py-2.5">
-                          <Badge variant={isActive ? "default" : "secondary"}>
-                            {isActive ? "Aktif" : "Nonaktif"}
-                          </Badge>
-                        </td>
-                        <td className="px-3 py-2.5 text-right">
-                          <div className="flex items-center justify-end gap-1.5">
+                {rows.map((b, i) => {
+                  const mentor = mentors.find((m) => m.id === b.mentor_id);
+                  const isDeleted = b.status === "inactive" || Boolean(b.deleted_at);
+
+                  return (
+                    <tr key={b.id} className={isDeleted ? "opacity-60 bg-muted/20" : "hover:bg-secondary/20"}>
+                      <td className="px-3 py-2 text-right tabular-nums text-muted-foreground text-xs">
+                        {i + 1}
+                      </td>
+                      <td className="px-3 py-2 font-medium">{b.name}</td>
+                      <td className="px-3 py-2 text-xs text-muted-foreground">{mentor?.name ?? "-"}</td>
+                      <td className="px-3 py-2">
+                        <Badge variant={isDeleted ? "secondary" : "default"} className="text-xs">
+                          {isDeleted ? "Nonaktif" : "Aktif"}
+                        </Badge>
+                      </td>
+                      <td className="px-3 py-2 text-right space-x-1 whitespace-nowrap">
+                        {isDeleted ? (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-7 px-2 text-xs"
+                            onClick={() => restore.mutate({ id: b.id })}
+                          >
+                            Aktifkan
+                          </Button>
+                        ) : (
+                          <>
                             <Button
+                              variant="ghost"
                               size="sm"
-                              variant="outline"
+                              className="h-7 px-2 text-xs"
                               onClick={() => openEditModal(b)}
                             >
                               Edit
                             </Button>
-                            {!isActive && (
-                              <Button
-                                size="sm"
-                                variant="secondary"
-                                disabled={restoreMutation.isPending}
-                                onClick={() => handleStartRestore(b)}
-                              >
-                                Aktifkan Kembali
-                              </Button>
-                            )}
                             <Button
+                              variant="ghost"
                               size="sm"
-                              variant="destructive"
-                              disabled={deleteMutation.isPending}
+                              className="h-7 px-2 text-xs text-destructive hover:text-destructive"
                               onClick={() => setDeletingBinaan(b)}
                             >
                               Hapus
                             </Button>
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })
-                )}
+                          </>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -867,25 +1040,19 @@ function BinaanSection({ rows, mentors }: { rows: any[]; mentors: any[] }) {
 
       {/* Edit Binaan Dialog */}
       <Dialog open={editingBinaan !== null} onOpenChange={(open) => !open && setEditingBinaan(null)}>
-        <DialogContent className="sm:max-w-[26rem]">
+        <DialogContent className="sm:max-w-[28rem]">
           <DialogHeader>
-            <DialogTitle>Edit Binaan</DialogTitle>
+            <DialogTitle>Edit Binaan: {editingBinaan?.name}</DialogTitle>
           </DialogHeader>
           <form
             className="space-y-3 py-2"
             onSubmit={(e) => {
               e.preventDefault();
               if (!editingBinaan) return;
-              if (!editMentorId) {
-                toast.error("Pilih mentor terlebih dahulu.");
-                return;
-              }
               save.mutate({
                 id: editingBinaan.id,
                 name: editName,
-                phone: editPhone || null,
                 mentor_id: editMentorId,
-                status: editStatus,
               });
               setEditingBinaan(null);
             }}
@@ -901,41 +1068,17 @@ function BinaanSection({ rows, mentors }: { rows: any[]; mentors: any[] }) {
               />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="b-edit-phone">No. HP (opsional)</Label>
-              <Input
-                id="b-edit-phone"
-                maxLength={30}
-                value={editPhone}
-                onChange={(e) => setEditPhone(e.target.value)}
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Mentor</Label>
-              <Select value={editMentorId} onValueChange={setEditMentorId}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Pilih mentor" />
+              <Label htmlFor="b-edit-mentor">Mentor</Label>
+              <Select value={editMentorId} onValueChange={(val: any) => setEditMentorId(val)}>
+                <SelectTrigger id="b-edit-mentor">
+                  <SelectValue placeholder="Pilih Mentor" />
                 </SelectTrigger>
                 <SelectContent>
                   {mentors.map((m) => (
                     <SelectItem key={m.id} value={m.id}>
-                      {m.name} {m.status !== "active" ? "(Nonaktif)" : ""}
+                      {m.name}
                     </SelectItem>
                   ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1.5">
-              <Label>Status</Label>
-              <Select
-                value={editStatus}
-                onValueChange={(val: any) => setEditStatus(val)}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="active">Aktif</SelectItem>
-                  <SelectItem value="inactive">Nonaktif</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -944,6 +1087,7 @@ function BinaanSection({ rows, mentors }: { rows: any[]; mentors: any[] }) {
                 Batal
               </Button>
               <Button type="submit" disabled={save.isPending}>
+                {save.isPending && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />}
                 Simpan Perubahan
               </Button>
             </DialogFooter>
@@ -951,123 +1095,151 @@ function BinaanSection({ rows, mentors }: { rows: any[]; mentors: any[] }) {
         </DialogContent>
       </Dialog>
 
-      {/* Confirmation Dialog Hapus Binaan */}
+      {/* Delete Binaan Confirmation AlertDialog */}
       <AlertDialog open={deletingBinaan !== null} onOpenChange={(open) => !open && setDeletingBinaan(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Hapus Binaan?</AlertDialogTitle>
+            <AlertDialogTitle>Hapus Binaan {deletingBinaan?.name}?</AlertDialogTitle>
             <AlertDialogDescription>
-              Apakah Anda yakin ingin menghapus{" "}
-              <span className="font-semibold text-foreground">{deletingBinaan?.name}</span>?
-              <br />
-              <br />
-              Data histori mutabaah yang sudah ada akan tetap disimpan untuk keperluan laporan.
+              Jika binaan ini sudah pernah mengisi mutabaah, sistem akan secara otomatis menyimpan statusnya sebagai
+              <strong> nonaktif</strong> untuk melindungi riwayat mutabaah.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Batal</AlertDialogCancel>
             <AlertDialogAction
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-              onClick={() => {
-                if (deletingBinaan?.id) {
-                  deleteMutation.mutate(deletingBinaan.id);
-                }
-              }}
+              className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
+              onClick={() => deletingBinaan && deleteBinaanMut.mutate(deletingBinaan.id)}
             >
-              Hapus Binaan
+              Hapus / Nonaktifkan
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-
-      {/* Restore Mentor Selection Dialog (If previous mentor is inactive) */}
-      <Dialog open={restoringBinaan !== null} onOpenChange={(open) => !open && setRestoringBinaan(null)}>
-        <DialogContent className="sm:max-w-[26rem]">
-          <DialogHeader>
-            <DialogTitle>Aktifkan Kembali Binaan</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-3 py-2 text-sm">
-            <p className="text-muted-foreground">
-              Mentor sebelumnya ({mentors.find((m) => m.id === restoringBinaan?.mentor_id)?.name ?? "Tidak Ada"}) sudah tidak aktif. Silakan pilih Mentor yang aktif:
-            </p>
-            <div className="space-y-1.5">
-              <Label>Pilih Mentor Aktif</Label>
-              <Select value={restoreMentorId} onValueChange={setRestoreMentorId}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Pilih mentor" />
-                </SelectTrigger>
-                <SelectContent>
-                  {activeMentors.map((m) => (
-                    <SelectItem key={m.id} value={m.id}>
-                      {m.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-          <DialogFooter className="pt-2">
-            <Button type="button" variant="outline" onClick={() => setRestoringBinaan(null)}>
-              Batal
-            </Button>
-            <Button
-              type="button"
-              disabled={!restoreMentorId || restoreMutation.isPending}
-              onClick={() => {
-                if (restoringBinaan?.id && restoreMentorId) {
-                  restoreMutation.mutate({
-                    id: restoringBinaan.id,
-                    mentor_id: restoreMentorId,
-                  });
-                }
-              }}
-            >
-              Aktifkan Kembali
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }
 
 function IndicatorSection({ rows }: { rows: any[] }) {
   const save = useSaver(saveIndicator, ["admin-data"]);
+  const [code, setCode] = useState("");
+  const [name, setName] = useState("");
+  const [target, setTarget] = useState("7");
+  const [unit, setUnit] = useState("kali");
 
   return (
-    <Panel title="Indikator Mutabaah">
-      <ul className="divide-y divide-border text-sm">
-        {rows.map((i) => (
-          <li key={i.id} className="flex flex-wrap items-center gap-3 py-2.5">
-            <span className="w-48 font-medium">{i.name}</span>
-            <span className="text-xs text-muted-foreground">Satuan: {i.unit}</span>
+    <div className="grid gap-4 md:grid-cols-[20rem_1fr]">
+      <Panel title="Tambah Indikator">
+        <form
+          className="space-y-3"
+          onSubmit={(e) => {
+            e.preventDefault();
+            save.mutate({
+              code,
+              name,
+              target: Number(target),
+              unit,
+              order_number: rows.length + 1,
+              active: true,
+            });
+            setCode("");
+            setName("");
+          }}
+        >
+          <div className="space-y-1.5">
+            <Label htmlFor="i-code">Kode</Label>
             <Input
-              type="number"
-              min={1}
-              max={1000}
-              defaultValue={i.target}
-              className="w-24"
-              aria-label={`Target ${i.name}`}
-              onBlur={(e) => {
-                const target = Number(e.target.value);
-                if (!target || target === Number(i.target)) return;
-                save.mutate({ ...i, target });
-              }}
+              id="i-code"
+              required
+              maxLength={20}
+              value={code}
+              onChange={(e) => setCode(e.target.value)}
+              placeholder="contoh: TAHAJUD"
             />
-          </li>
-        ))}
-      </ul>
-      <p className="mt-3 text-xs text-muted-foreground">
-        Ubah angka target lalu klik di luar kolom untuk menyimpan.
-      </p>
-    </Panel>
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="i-name">Nama Indikator</Label>
+            <Input
+              id="i-name"
+              required
+              maxLength={100}
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="contoh: Sholat Tahajud"
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <div className="space-y-1.5">
+              <Label htmlFor="i-target">Target</Label>
+              <Input
+                id="i-target"
+                type="number"
+                required
+                min={1}
+                value={target}
+                onChange={(e) => setTarget(e.target.value)}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="i-unit">Satuan</Label>
+              <Input
+                id="i-unit"
+                required
+                maxLength={20}
+                value={unit}
+                onChange={(e) => setUnit(e.target.value)}
+                placeholder="kali"
+              />
+            </div>
+          </div>
+          <Button type="submit" disabled={save.isPending} className="w-full">
+            {save.isPending && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />}
+            Simpan Indikator
+          </Button>
+        </form>
+      </Panel>
+
+      <Panel title="Daftar Indikator Target">
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-sm">
+            <thead className="border-b border-border bg-secondary/40 text-xs font-semibold uppercase text-muted-foreground">
+              <tr>
+                <th className="px-3 py-2">Urutan</th>
+                <th className="px-3 py-2">Kode</th>
+                <th className="px-3 py-2">Nama</th>
+                <th className="px-3 py-2">Target</th>
+                <th className="px-3 py-2">Status</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border">
+              {rows.map((row) => (
+                <tr key={row.id}>
+                  <td className="px-3 py-2 tabular-nums">{row.order_number}</td>
+                  <td className="px-3 py-2 font-mono text-xs">{row.code}</td>
+                  <td className="px-3 py-2 font-medium">{row.name}</td>
+                  <td className="px-3 py-2 tabular-nums">
+                    {row.target} {row.unit}
+                  </td>
+                  <td className="px-3 py-2">
+                    <Badge variant={row.active ? "default" : "secondary"}>
+                      {row.active ? "Aktif" : "Nonaktif"}
+                    </Badge>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </Panel>
+    </div>
   );
 }
 
 function PeriodSection({ rows }: { rows: any[] }) {
-  const save = useSaver(savePeriod, ["admin-data", "admin-dashboard", "mentor-recap", "monthly"]);
+  const save = useSaver(savePeriod, ["admin-data", "admin-dashboard", "mentor-recap"]);
   const [start, setStart] = useState("");
   const [end, setEnd] = useState("");
+  const [status, setStatus] = useState("active");
 
   return (
     <div className="grid gap-4 md:grid-cols-[20rem_1fr]">
@@ -1076,49 +1248,73 @@ function PeriodSection({ rows }: { rows: any[] }) {
           className="space-y-3"
           onSubmit={(e) => {
             e.preventDefault();
-            save.mutate({ start_date: start, end_date: end, status: "active" });
+            save.mutate({ start_date: start, end_date: end, status });
+            setStart("");
+            setEnd("");
           }}
         >
           <div className="space-y-1.5">
-            <Label htmlFor="p-start">Mulai</Label>
-            <Input id="p-start" type="date" required value={start} onChange={(e) => setStart(e.target.value)} />
+            <Label htmlFor="p-start">Tanggal Mulai</Label>
+            <Input
+              id="p-start"
+              type="date"
+              required
+              value={start}
+              onChange={(e) => setStart(e.target.value)}
+            />
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="p-end">Selesai</Label>
-            <Input id="p-end" type="date" required value={end} onChange={(e) => setEnd(e.target.value)} />
+            <Label htmlFor="p-end">Tanggal Selesai</Label>
+            <Input
+              id="p-end"
+              type="date"
+              required
+              value={end}
+              onChange={(e) => setEnd(e.target.value)}
+            />
           </div>
-          <Button type="submit" className="w-full" disabled={save.isPending}>
-            Simpan &amp; Jadikan Aktif
+          <div className="space-y-1.5">
+            <Label htmlFor="p-status">Status</Label>
+            <Select value={status} onValueChange={(val: any) => setStatus(val)}>
+              <SelectTrigger id="p-status">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="active">Aktif (Pekan Berjalan)</SelectItem>
+                <SelectItem value="closed">Ditutup</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <Button type="submit" disabled={save.isPending} className="w-full">
+            {save.isPending && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />}
+            Simpan Periode
           </Button>
         </form>
       </Panel>
-      <Panel title="Daftar Periode">
-        <ul className="divide-y divide-border text-sm">
-          {rows.map((p) => (
-            <li key={p.id} className="flex items-center justify-between py-2">
-              <span>{formatPeriod(p.start_date, p.end_date)}</span>
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-muted-foreground">{p.status}</span>
-                {p.status !== "active" && (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() =>
-                      save.mutate({
-                        id: p.id,
-                        start_date: p.start_date,
-                        end_date: p.end_date,
-                        status: "active",
-                      })
-                    }
-                  >
-                    Aktifkan
-                  </Button>
-                )}
-              </div>
-            </li>
-          ))}
-        </ul>
+
+      <Panel title="Daftar Periode Pekanan">
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-sm">
+            <thead className="border-b border-border bg-secondary/40 text-xs font-semibold uppercase text-muted-foreground">
+              <tr>
+                <th className="px-3 py-2">Rentang Tanggal</th>
+                <th className="px-3 py-2">Status</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border">
+              {rows.map((row) => (
+                <tr key={row.id}>
+                  <td className="px-3 py-2 font-medium">{formatPeriod(row.start_date, row.end_date)}</td>
+                  <td className="px-3 py-2">
+                    <Badge variant={row.status === "active" ? "default" : "secondary"}>
+                      {row.status === "active" ? "Aktif" : "Ditutup"}
+                    </Badge>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </Panel>
     </div>
   );

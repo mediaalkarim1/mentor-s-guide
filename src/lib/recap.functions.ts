@@ -138,6 +138,68 @@ export const getExportRows = createServerFn({ method: "POST" })
   .inputValidator((data: unknown) => periodInput.parse(data ?? {}))
   .handler(async ({ data, context }) => {
     const { buildExportRows } = await import("./recap.server");
-    // RLS limits mentors to their own submissions; admins get everything.
     return buildExportRows(context.supabase, data.periodId);
+  });
+
+const saveOverrideSchema = z.object({
+  mentorId: z.string().uuid(),
+  isOverride: z.boolean(),
+  manualWeeklyScore: z.number().optional(),
+  manualMonthlyScore: z.number().optional(),
+  manualStatus: z.string().optional(),
+});
+
+export const saveMentorRecapOverride = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data: unknown) => saveOverrideSchema.parse(data))
+  .handler(async ({ data, context }) => {
+    const { resolveAccount } = await import("./account.server");
+    const email = (context.claims as { email?: string }).email ?? null;
+    const account = await resolveAccount(context.userId, email);
+
+    if (!account.isAdmin) {
+      return { ok: false, error: "Akses ditolak. Hanya Admin yang dapat mengubah rekap." };
+    }
+
+    const { setMentorOverride } = await import("./recap_overrides.server");
+    setMentorOverride(data.mentorId, {
+      isOverride: data.isOverride,
+      manualWeeklyScore: data.manualWeeklyScore,
+      manualMonthlyScore: data.manualMonthlyScore,
+      manualStatus: data.manualStatus,
+    });
+
+    return { ok: true };
+  });
+
+const resetRecapSchema = z.object({
+  mentorId: z.string().uuid(),
+  scope: z.enum(["weekly", "monthly", "all"]),
+  periodId: z.string().uuid().optional(),
+});
+
+export const resetMentorRecap = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data: unknown) => resetRecapSchema.parse(data))
+  .handler(async ({ data, context }) => {
+    const { resolveAccount } = await import("./account.server");
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const email = (context.claims as { email?: string }).email ?? null;
+    const account = await resolveAccount(context.userId, email);
+
+    if (!account.isAdmin) {
+      return { ok: false, error: "Akses ditolak. Hanya Admin yang dapat melakukan reset rekap." };
+    }
+
+    const { listPeriods, resolvePeriod, resetMentorRecapServer } = await import("./recap.server");
+    const { monthLabel } = await import("./mutabaah-config");
+
+    const client = supabaseAdmin;
+    const periods = await listPeriods(client);
+    const period = await resolvePeriod(client, data.periodId);
+    const monthIds = period
+      ? periods.filter((p) => monthLabel(p.start_date) === monthLabel(period.start_date)).map((p) => p.id)
+      : [];
+
+    return resetMentorRecapServer(client, data.mentorId, data.scope, period?.id ?? null, monthIds);
   });
