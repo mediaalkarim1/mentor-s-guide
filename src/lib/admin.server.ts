@@ -6,6 +6,7 @@ const MASTER_SEED_DATA = [
   {
     id: "a1000000-0000-0000-0000-000000000001",
     name: "Umi Indah",
+    username: "umi_indah",
     email: "umi_indah@mutabaah.local",
     binaan: [
       "Umi Frisca",
@@ -24,6 +25,7 @@ const MASTER_SEED_DATA = [
   {
     id: "a1000000-0000-0000-0000-000000000002",
     name: "Umi Melisa",
+    username: "umi_melisa",
     email: "umi_melisa@mutabaah.local",
     binaan: [
       "Umi Yulinda",
@@ -38,6 +40,7 @@ const MASTER_SEED_DATA = [
   {
     id: "a1000000-0000-0000-0000-000000000003",
     name: "Umi Navi",
+    username: "umi_navi",
     email: "umi_navi@mutabaah.local",
     binaan: [
       "Umi Puput",
@@ -52,6 +55,7 @@ const MASTER_SEED_DATA = [
   {
     id: "a1000000-0000-0000-0000-000000000004",
     name: "Umi Novi",
+    username: "umi_novi",
     email: "umi_novi@mutabaah.local",
     binaan: [
       "Umi Rizki",
@@ -66,6 +70,7 @@ const MASTER_SEED_DATA = [
   {
     id: "a1000000-0000-0000-0000-000000000005",
     name: "Umi Okti",
+    username: "umi_okti",
     email: "umi_okti@mutabaah.local",
     binaan: [
       "Umi Fina",
@@ -80,6 +85,7 @@ const MASTER_SEED_DATA = [
   {
     id: "a1000000-0000-0000-0000-000000000006",
     name: "Umi Ditha",
+    username: "umi_ditha",
     email: "umi_ditha@mutabaah.local",
     binaan: [
       "Umi Anisa",
@@ -94,12 +100,14 @@ const MASTER_SEED_DATA = [
   {
     id: "11111111-1111-1111-1111-111111111111",
     name: "Abi Azam",
+    username: "abi_azam",
     email: "abi_azam@mutabaah.local",
     binaan: ["Abi Erle", "Abi Helmi", "Abi Ma’ares", "Abi Willy"],
   },
   {
     id: "a1000000-0000-0000-0000-000000000008",
     name: "Umi Resty",
+    username: "umi_resty",
     email: "umi_resty@mutabaah.local",
     binaan: [
       "Umi Dewi",
@@ -116,6 +124,7 @@ const MASTER_SEED_DATA = [
   {
     id: "a1000000-0000-0000-0000-000000000009",
     name: "Umi Nia",
+    username: "umi_nia",
     email: "umi_nia@mutabaah.local",
     binaan: [
       "Umi Putri",
@@ -132,24 +141,28 @@ const MASTER_SEED_DATA = [
   {
     id: "a1000000-0000-0000-0000-000000000010",
     name: "Umi Tiwi",
+    username: "umi_tiwi",
     email: "umi_tiwi@mutabaah.local",
     binaan: ["Ummi Reka", "Ummi Yumi", "Ummi Lily", "Ummi Ira"],
   },
   {
     id: "a1000000-0000-0000-0000-000000000011",
     name: "Umi Miftah",
+    username: "umi_miftah",
     email: "umi_miftah@mutabaah.local",
     binaan: ["Umi Sylvi", "Umi Yeni", "Umi Sisca", "Umi Isda"],
   },
   {
     id: "a1000000-0000-0000-0000-000000000012",
     name: "Abi Endi",
+    username: "abi_endi",
     email: "abi_endi@mutabaah.local",
     binaan: ["Abi Gilang", "Abi Ikmal", "Abi Hadi", "Abi Izhan", "Abi Huda"],
   },
   {
     id: "a1000000-0000-0000-0000-000000000013",
     name: "Abi Tama",
+    username: "abi_tama",
     email: "abi_tama@mutabaah.local",
     binaan: [
       "Om Arjun",
@@ -167,7 +180,7 @@ const MASTER_SEED_DATA = [
 ];
 
 async function ensureMasterDataSeeded(supabase: DB) {
-  const { data: existingMentors } = await supabase.from("mentors").select("id, name");
+  const { data: existingMentors } = await supabase.from("mentors").select("id, name, username");
   const mentorMap = new Map((existingMentors ?? []).map((m) => [m.name, m.id]));
 
   for (const mData of MASTER_SEED_DATA) {
@@ -176,7 +189,7 @@ async function ensureMasterDataSeeded(supabase: DB) {
     if (!mentorId) {
       const { data: inserted } = await supabase
         .from("mentors")
-        .insert({ id: mData.id, name: mData.name, email: mData.email, status: "active" })
+        .insert({ id: mData.id, name: mData.name, username: mData.username, email: mData.email, status: "active" })
         .select("id")
         .maybeSingle();
 
@@ -184,6 +197,9 @@ async function ensureMasterDataSeeded(supabase: DB) {
         mentorId = inserted.id;
         mentorMap.set(mData.name, mentorId);
       }
+    } else {
+      // Update username if missing
+      await supabase.from("mentors").update({ username: mData.username }).eq("id", mentorId);
     }
 
     if (mentorId) {
@@ -219,7 +235,7 @@ export async function loadAdminData(supabase: DB) {
     // fallback to provided client
   }
 
-  let { data: mentorsData } = await db.from("mentors").select("id, name, email, status").order("name");
+  let { data: mentorsData } = await db.from("mentors").select("id, name, email, username, status").order("name");
   let { data: binaanData, error: bErr } = await db.from("binaan").select("id, name, mentor_id, phone, status").order("name");
   if (bErr || !binaanData) {
     const fallback = await db.from("binaan").select("id, name, mentor_id, phone, status").order("name");
@@ -228,7 +244,7 @@ export async function loadAdminData(supabase: DB) {
 
   if (!mentorsData || mentorsData.length < 13 || !binaanData || binaanData.length < 85) {
     await ensureMasterDataSeeded(db);
-    const mRes = await db.from("mentors").select("id, name, email, status").order("name");
+    const mRes = await db.from("mentors").select("id, name, email, username, status").order("name");
     const bRes = await db.from("binaan").select("id, name, mentor_id, phone, status").order("name");
     mentorsData = mRes.data ?? [];
     binaanData = bRes.data ?? [];
@@ -300,6 +316,77 @@ export async function restoreBinaanRow(
   }
   const { error } = await supabase.from("binaan").update(updates).eq("id", row.id);
   if (error) return { ok: false, error: error.message };
+  return { ok: true };
+}
+
+export async function saveMentorRow(
+  supabase: DB,
+  row: { id?: string; name: string; username?: string | null; email?: string | null; password?: string | null; status?: string }
+) {
+  let db = supabase;
+  try {
+    if (process.env["SUPABASE_SERVICE_ROLE_KEY"]) {
+      db = supabaseAdmin as unknown as DB;
+    }
+  } catch (e) {
+    // fallback
+  }
+
+  const { id, password, ...values } = row;
+  const username = values.username?.trim().toLowerCase() || null;
+  const email = values.email?.trim().toLowerCase() || (username ? `${username}@mutabaah.local` : null);
+
+  let mentorId = id;
+  if (mentorId) {
+    const { error } = await db
+      .from("mentors")
+      .update({ ...values, username, email })
+      .eq("id", mentorId);
+    if (error) return { ok: false, error: error.message };
+  } else {
+    const { data: inserted, error } = await db
+      .from("mentors")
+      .insert({ ...values, username, email, status: values.status ?? "active" })
+      .select("id")
+      .single();
+    if (error) return { ok: false, error: error.message };
+    mentorId = inserted.id;
+  }
+
+  if (password && email && mentorId) {
+    try {
+      const { data: existingUser } = await supabaseAdmin.auth.admin.listUsers();
+      const existing = existingUser?.users?.find((u) => u.email?.toLowerCase() === email.toLowerCase());
+
+      let authUserId: string | undefined;
+      if (existing) {
+        authUserId = existing.id;
+        await supabaseAdmin.auth.admin.updateUserById(authUserId, { password });
+      } else {
+        const { data: newUser, error: createErr } = await supabaseAdmin.auth.admin.createUser({
+          email,
+          password,
+          email_confirm: true,
+        });
+        if (createErr) {
+          console.error("Failed to create auth user for mentor:", createErr);
+        } else if (newUser?.user) {
+          authUserId = newUser.user.id;
+        }
+      }
+
+      if (authUserId) {
+        await db.from("mentors").update({ user_id: authUserId }).eq("id", mentorId);
+        await db.from("user_roles").upsert(
+          { user_id: authUserId, role: "mentor" },
+          { onConflict: "user_id,role" },
+        );
+      }
+    } catch (authErr: any) {
+      console.warn("Auth user setup warning:", authErr?.message);
+    }
+  }
+
   return { ok: true };
 }
 

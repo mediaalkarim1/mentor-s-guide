@@ -80,8 +80,16 @@ function AdminPage() {
 
   if (dashboard.isError) {
     return (
-      <div className="surface-card p-6 text-sm text-muted-foreground">
-        Halaman ini hanya untuk Admin.
+      <div className="surface-card p-8 text-center space-y-4 max-w-md mx-auto my-12 border border-border rounded-xl">
+        <h2 className="text-lg font-bold">Akses Ditolak</h2>
+        <p className="text-sm text-muted-foreground">
+          Halaman Panel Admin ini khusus untuk akun Admin. Akun Anda terdaftar sebagai Mentor.
+        </p>
+        <div className="pt-2 flex justify-center gap-2">
+          <Link to="/dashboard">
+            <Button variant="default">Ke Dashboard Mentor</Button>
+          </Link>
+        </div>
       </div>
     );
   }
@@ -203,11 +211,15 @@ function MentorSection({ rows, binaan }: { rows: any[]; binaan: any[] }) {
   const queryClient = useQueryClient();
   const save = useSaver(saveMentor, ["admin-data", "admin-dashboard", "admin-mentors"]);
   const [name, setName] = useState("");
+  const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
 
   const [editingMentor, setEditingMentor] = useState<any | null>(null);
   const [editName, setEditName] = useState("");
+  const [editUsername, setEditUsername] = useState("");
   const [editEmail, setEditEmail] = useState("");
+  const [editPassword, setEditPassword] = useState("");
   const [editStatus, setEditStatus] = useState<"active" | "inactive">("active");
 
   const [viewingMentor, setViewingMentor] = useState<any | null>(null);
@@ -238,7 +250,9 @@ function MentorSection({ rows, binaan }: { rows: any[]; binaan: any[] }) {
   const openEditModal = (m: any) => {
     setEditingMentor(m);
     setEditName(m.name);
+    setEditUsername(m.username ?? "");
     setEditEmail(m.email ?? "");
+    setEditPassword("");
     setEditStatus(m.status === "active" ? "active" : "inactive");
   };
 
@@ -250,9 +264,17 @@ function MentorSection({ rows, binaan }: { rows: any[]; binaan: any[] }) {
             className="space-y-3"
             onSubmit={(e) => {
               e.preventDefault();
-              save.mutate({ name, email: email || null, status: "active" });
+              save.mutate({
+                name,
+                username: username || null,
+                email: email || null,
+                password: password || null,
+                status: "active",
+              });
               setName("");
+              setUsername("");
               setEmail("");
+              setPassword("");
             }}
           >
             <div className="space-y-1.5">
@@ -260,8 +282,16 @@ function MentorSection({ rows, binaan }: { rows: any[]; binaan: any[] }) {
               <Input id="m-name" required maxLength={100} value={name} onChange={(e) => setName(e.target.value)} />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="m-email">Email (untuk login)</Label>
+              <Label htmlFor="m-username">Username (login mentor)</Label>
+              <Input id="m-username" maxLength={50} value={username} onChange={(e) => setUsername(e.target.value)} placeholder="contoh: abi_azam" />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="m-email">Email (opsional)</Label>
               <Input id="m-email" type="email" maxLength={255} value={email} onChange={(e) => setEmail(e.target.value)} />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="m-password">Password (opsional)</Label>
+              <Input id="m-password" type="password" maxLength={72} value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Password login mentor" />
             </div>
             <Button type="submit" className="w-full" disabled={save.isPending}>
               Simpan
@@ -275,7 +305,7 @@ function MentorSection({ rows, binaan }: { rows: any[]; binaan: any[] }) {
                 <tr>
                   <th className="px-3 py-2 text-right w-10">No</th>
                   <th className="px-3 py-2">Nama Mentor</th>
-                  <th className="px-3 py-2">Email / Username</th>
+                  <th className="px-3 py-2">Username / Email</th>
                   <th className="px-3 py-2">Daftar Binaan</th>
                   <th className="px-3 py-2 text-center w-16">Jml</th>
                   <th className="px-3 py-2">Status</th>
@@ -304,7 +334,8 @@ function MentorSection({ rows, binaan }: { rows: any[]; binaan: any[] }) {
                         </button>
                       </td>
                       <td className="px-3 py-2.5 text-xs text-muted-foreground">
-                        {m.email ?? "tanpa email"}
+                        <div className="font-mono text-foreground font-medium">{m.username ? `@${m.username}` : "-"}</div>
+                        {m.email && <div className="text-[11px] text-muted-foreground">{m.email}</div>}
                       </td>
                       <td className="px-3 py-2.5 text-xs">
                         {binaanCount === 0 ? (
@@ -420,7 +451,9 @@ function MentorSection({ rows, binaan }: { rows: any[]; binaan: any[] }) {
               save.mutate({
                 id: editingMentor.id,
                 name: editName,
+                username: editUsername || null,
                 email: editEmail || null,
+                password: editPassword || null,
                 status: editStatus,
               });
               setEditingMentor(null);
@@ -437,12 +470,34 @@ function MentorSection({ rows, binaan }: { rows: any[]; binaan: any[] }) {
               />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="m-edit-email">Email / Username</Label>
+              <Label htmlFor="m-edit-username">Username (login mentor)</Label>
+              <Input
+                id="m-edit-username"
+                maxLength={50}
+                value={editUsername}
+                onChange={(e) => setEditUsername(e.target.value)}
+                placeholder="contoh: abi_azam"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="m-edit-email">Email (opsional)</Label>
               <Input
                 id="m-edit-email"
+                type="email"
                 maxLength={255}
                 value={editEmail}
                 onChange={(e) => setEditEmail(e.target.value)}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="m-edit-password">Password Baru (opsional)</Label>
+              <Input
+                id="m-edit-password"
+                type="password"
+                maxLength={72}
+                value={editPassword}
+                onChange={(e) => setEditPassword(e.target.value)}
+                placeholder="Kosongkan jika tidak diubah"
               />
             </div>
             <div className="space-y-1.5">

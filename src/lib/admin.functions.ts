@@ -5,7 +5,9 @@ import { z } from "zod";
 const mentorSchema = z.object({
   id: z.string().uuid().optional(),
   name: z.string().trim().min(2).max(100),
+  username: z.string().trim().min(2).max(50).nullable().optional(),
   email: z.string().trim().email().max(255).nullable().optional(),
+  password: z.string().trim().min(4).max(72).nullable().optional(),
   status: z.enum(["active", "inactive"]).default("active"),
 });
 
@@ -50,11 +52,8 @@ export const saveMentor = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((data: unknown) => mentorSchema.parse(data))
   .handler(async ({ data, context }) => {
-    const { upsertRow } = await import("./admin.server");
-    return upsertRow(context.supabase, "mentors", {
-      ...data,
-      email: data.email ? data.email.toLowerCase() : null,
-    });
+    const { saveMentorRow } = await import("./admin.server");
+    return saveMentorRow(context.supabase, data);
   });
 
 export const deleteMentor = createServerFn({ method: "POST" })
