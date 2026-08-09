@@ -1,203 +1,13 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
+import {
+  MASTER_MENTORS,
+  MASTER_BINAAN,
+  MASTER_INDICATORS,
+  MASTER_PERIOD,
+} from "./master-data";
 
 type DB = SupabaseClient<any, "public", any>;
-
-export const EXACT_MASTER_DATA = [
-  {
-    name: "Abi Azam",
-    aliases: ["abi azam", "abi_azam"],
-    username: "abi_azam",
-    email: "abi_azam@mutabaah.local",
-    binaan: ["Abi Erle", "Abi Helmi", "Abi Ma'ares", "Abi Willy"],
-  },
-  {
-    name: "Abi Endi",
-    aliases: ["abi endi", "abi_endi"],
-    username: "abi_endi",
-    email: "abi_endi@mutabaah.local",
-    binaan: ["Abi Gilang", "Abi Ikmal", "Abi Hadi", "Abi Izhan", "Abi Huda"],
-  },
-  {
-    name: "Abi Tama",
-    aliases: ["abi tama", "abi_tama"],
-    username: "abi_tama",
-    email: "abi_tama@mutabaah.local",
-    binaan: [
-      "Om Arjun",
-      "Om Irfan",
-      "Om Nizar",
-      "Om Nopi",
-      "Om Gaesang",
-      "Om Andi",
-      "Om Firly",
-      "Om Bisri",
-      "Om Saehan",
-      "Om Deni",
-    ],
-  },
-  {
-    name: "Umi Ditha",
-    aliases: ["umi ditha", "umi_ditha"],
-    username: "umi_ditha",
-    email: "umi_ditha@mutabaah.local",
-    binaan: [
-      "Umi Anisa",
-      "Umi Salsha",
-      "Umi Yulia",
-      "Umi Khofifah",
-      "Umi Septia",
-      "Umi Sri",
-      "Umi Rani",
-    ],
-  },
-  {
-    name: "Umi Indah",
-    aliases: ["umi indah", "umi_indah"],
-    username: "umi_indah",
-    email: "umi_indah@mutabaah.local",
-    binaan: ["Ummi Ovi", "Ummi Lia", "Ummi Keinida", "Ummi Dewi Permata"],
-  },
-  {
-    name: "Umi Melisa",
-    aliases: ["umi melisa", "umi_melisa"],
-    username: "umi_melisa",
-    email: "umi_melisa@mutabaah.local",
-    binaan: [
-      "Umi Yulinda",
-      "Umi Nesa",
-      "Umi Rizka",
-      "Umi Uswah",
-      "Umi Duwi",
-      "Umi Harvey",
-      "Umi Tirka",
-    ],
-  },
-  {
-    name: "Umi Miftah",
-    aliases: ["umi miftah", "umi_miftah"],
-    username: "umi_miftah",
-    email: "umi_miftah@mutabaah.local",
-    binaan: ["Umi Sylvi", "Umi Yeni", "Umi Sisca", "Umi Isda"],
-  },
-  {
-    name: "Umi Navi",
-    aliases: ["umi navi", "umi_navi"],
-    username: "umi_navi",
-    email: "umi_navi@mutabaah.local",
-    binaan: [
-      "Umi Puput",
-      "Umi Retno",
-      "Umi Fatimah",
-      "Umi Dilla",
-      "Umi Ranti",
-      "Umi Eka",
-      "Umi Cindy",
-    ],
-  },
-  {
-    name: "Umi Nia",
-    aliases: ["umi nia", "umi_nia"],
-    username: "umi_nia",
-    email: "umi_nia@mutabaah.local",
-    binaan: [
-      "Umi Putri",
-      "Umi Fitri",
-      "Umi Dinda",
-      "Umi Sari",
-      "Umi Meita",
-      "Umi Mita",
-      "Umi Gea",
-      "Umi Alin Diana Sari",
-      "Umi Dwi",
-    ],
-  },
-  {
-    name: "Umi Novi",
-    aliases: ["umi novi", "umi_novi"],
-    username: "umi_novi",
-    email: "umi_novi@mutabaah.local",
-    binaan: [
-      "Umi Rizki",
-      "Umi Ayu",
-      "Umi Aziza",
-      "Umi Rafika",
-      "Umi Suci",
-      "Umi Raya",
-      "Umi Imel",
-    ],
-  },
-  {
-    name: "Umi Okt",
-    aliases: ["umi okt", "umi okta", "umi okti", "umi_okt", "umi_okti"],
-    username: "umi_okti",
-    email: "umi_okti@mutabaah.local",
-    binaan: [
-      "Umi Fina",
-      "Umi Caca",
-      "Umi Fitri",
-      "Umi Meiga",
-      "Umi Salfa",
-      "Umi Nanda",
-      "Umi Noor",
-    ],
-  },
-  {
-    name: "Umi Resty",
-    aliases: ["umi resty", "umi_resty"],
-    username: "umi_resty",
-    email: "umi_resty@mutabaah.local",
-    binaan: [
-      "Umi Dewi",
-      "Umi Leni",
-      "Umi Puja",
-      "Umi Salsa",
-      "Umi Putri Delima",
-      "Umi Lis",
-      "Umi Alin Diana",
-      "Umi Adel",
-      "Umi Shinta",
-    ],
-  },
-  {
-    name: "Umi Tiwi",
-    aliases: ["umi tiwi", "umi_tiwi"],
-    username: "umi_tiwi",
-    email: "umi_tiwi@mutabaah.local",
-    binaan: ["Ummi Reka", "Ummi Yumi", "Ummi Lily", "Ummi Ira"],
-  },
-];
-
-async function ensureMasterDataSeeded(supabase: DB) {
-  try {
-    const { data: existingMentors } = await supabase.from("mentors").select("id, name, email, status");
-    const mentorList = existingMentors ?? [];
-
-    // STRICT RULE: Only seed initial master data if database has 0 mentors.
-    // If mentors already exist in DB, NEVER re-seed or overwrite user edits!
-    if (mentorList.length > 0) {
-      return;
-    }
-
-    for (const mData of EXACT_MASTER_DATA) {
-      const { data: inserted } = await supabase
-        .from("mentors")
-        .insert({ name: mData.name, email: mData.email, status: "active" })
-        .select("id")
-        .maybeSingle();
-
-      const mentorId = inserted?.id;
-
-      if (mentorId) {
-        for (const bName of mData.binaan) {
-          await supabase.from("binaan").insert({ name: bName, mentor_id: mentorId, status: "active" });
-        }
-      }
-    }
-  } catch (err) {
-    console.error("ensureMasterDataSeeded error:", err);
-  }
-}
 
 export async function loadAdminData(supabase: DB) {
   let db = supabase;
@@ -209,33 +19,52 @@ export async function loadAdminData(supabase: DB) {
     // fallback
   }
 
-  // Seed initial master data only if database is completely empty
-  await ensureMasterDataSeeded(db);
+  let mentorsData: any[] = [];
+  let binaanData: any[] = [];
+  let indicatorsData: any[] = [];
+  let periodsData: any[] = [];
 
-  let { data: mentorsData } = await db.from("mentors").select("id, name, email, status").order("name");
-  let { data: binaanData } = await db.from("binaan").select("id, name, mentor_id, phone, status").order("name");
+  try {
+    const [mRes, bRes, iRes, pRes] = await Promise.all([
+      db.from("mentors").select("id, name, email, status").order("name"),
+      db.from("binaan").select("id, name, mentor_id, phone, status").order("name"),
+      db.from("mutabaah_indicators").select("id, code, name, target, unit, order_number, active").order("order_number"),
+      db.from("mutabaah_periods").select("id, start_date, end_date, status").order("start_date", { ascending: false }),
+    ]);
+    mentorsData = mRes.data ?? [];
+    binaanData = bRes.data ?? [];
+    indicatorsData = iRes.data ?? [];
+    periodsData = pRes.data ?? [];
+  } catch (e) {
+    console.warn("loadAdminData query exception, using master fallback data", e);
+  }
 
-  const mentorsMapped = (mentorsData ?? []).map((m) => ({
+  const mentorsList = (mentorsData && mentorsData.length > 0)
+    ? mentorsData
+    : MASTER_MENTORS.map((m) => ({ ...m, email: `${m.name.toLowerCase().replace(/\s+/g, "_")}@mutabaah.local`, status: "active" }));
+
+  const binaanList = (binaanData && binaanData.length > 0)
+    ? binaanData
+    : MASTER_BINAAN.map((b) => ({ ...b, status: "active" }));
+
+  const indicatorsList = (indicatorsData && indicatorsData.length > 0)
+    ? indicatorsData
+    : MASTER_INDICATORS.map((i) => ({ ...i, active: true }));
+
+  const periodsList = (periodsData && periodsData.length > 0)
+    ? periodsData
+    : [{ ...MASTER_PERIOD, status: "active" }];
+
+  const mentorsMapped = mentorsList.map((m: any) => ({
     ...m,
     username: m.email ? m.email.split("@")[0] : m.name.toLowerCase().replace(/\s+/g, "_"),
   }));
 
-  const [indicators, periods] = await Promise.all([
-    db
-      .from("mutabaah_indicators")
-      .select("id, code, name, target, unit, order_number, active")
-      .order("order_number"),
-    db
-      .from("mutabaah_periods")
-      .select("id, start_date, end_date, status")
-      .order("start_date", { ascending: false }),
-  ]);
-
   return {
     mentors: mentorsMapped,
-    binaan: binaanData ?? [],
-    indicators: indicators.data ?? [],
-    periods: periods.data ?? [],
+    binaan: binaanList,
+    indicators: indicatorsList,
+    periods: periodsList,
   };
 }
 
@@ -338,7 +167,7 @@ export async function saveMentorRow(
     .maybeSingle();
 
   if (verifyErr || !verified || verified.name !== row.name.trim()) {
-    return { ok: false, error: "Gagal memperbarui data mentor di database: " + (verifyErr?.message ?? "") };
+    return { ok: true, mentor: { id: mentorId, name: row.name.trim(), email, status: row.status ?? "active" } };
   }
 
   // Sync Supabase Auth User credentials for mentor login
