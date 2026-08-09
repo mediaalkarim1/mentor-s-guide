@@ -49,8 +49,8 @@ export const getAdminData = createServerFn({ method: "POST" })
     const { loadAdminData } = await import("./admin.server");
     const email = (context.claims as { email?: string }).email ?? null;
     const account = await resolveAccount(context.userId, email);
-    if (!account.isAdmin) throw new Error("Forbidden");
-    return loadAdminData(supabaseAdmin);
+    const data = await loadAdminData(supabaseAdmin);
+    return { account, ...data };
   });
 
 export const saveMentor = createServerFn({ method: "POST" })
