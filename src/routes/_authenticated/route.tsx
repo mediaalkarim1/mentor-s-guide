@@ -1,40 +1,42 @@
-import { createFileRoute, Link, Outlet, redirect } from "@tanstack/react-router";
-import { supabase } from "@/integrations/supabase/client";
+import { useEffect } from "react";
+import { createFileRoute, Outlet, useNavigate } from "@tanstack/react-router";
+import { useAuth } from "@/components/AuthProvider";
 import { AppShell } from "@/components/AppShell";
-import { Button } from "@/components/ui/button";
+import { Loader2 } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated")({
   ssr: false,
-  beforeLoad: async () => {
-    try {
-      const { data, error } = await supabase.auth.getUser();
-      if (error || !data.user) {
-        throw redirect({ to: "/login" });
-      }
-      return { user: data.user };
-    } catch (e: any) {
-      if (e?.to || e?.isRedirect) throw e;
-      throw redirect({ to: "/login" });
+  component: AuthenticatedLayout,
+});
+
+function AuthenticatedLayout() {
+  const { loading, session } = useAuth();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (!loading && !session) {
+      navigate({ to: "/login", replace: true });
     }
-  },
-  errorComponent: () => (
-    <div className="flex min-h-screen flex-col items-center justify-center p-6 text-center bg-background">
-      <div className="surface-card p-8 text-center space-y-4 max-w-md w-full border border-border rounded-xl">
-        <h2 className="text-xl font-bold">Sesi Login Tidak Ditemukan</h2>
-        <p className="text-sm text-muted-foreground">
-          Silakan masuk terlebih dahulu untuk mengakses halaman ini.
-        </p>
-        <div className="pt-2">
-          <Link to="/login">
-            <Button className="w-full">Ke Halaman Login</Button>
-          </Link>
+  }, [loading, session, navigate]);
+
+  if (loading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background text-muted-foreground">
+        <div className="flex flex-col items-center gap-2">
+          <Loader2 className="h-6 w-6 animate-spin text-primary" />
+          <p className="text-sm font-medium">Memeriksa sesi login...</p>
         </div>
       </div>
-    </div>
-  ),
-  component: () => (
+    );
+  }
+
+  if (!session) {
+    return null;
+  }
+
+  return (
     <AppShell>
       <Outlet />
     </AppShell>
-  ),
-});
+  );
+}
