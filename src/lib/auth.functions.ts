@@ -18,7 +18,6 @@ export const loginAdminFn = createServerFn({ method: "POST" })
     const email = data.email.toLowerCase().trim();
     const password = data.password;
 
-    // Check if user exists in Supabase Auth via admin client
     try {
       const { data: usersData } = await supabaseAdmin.auth.admin.listUsers();
       let existingUser = usersData?.users?.find(
@@ -38,11 +37,9 @@ export const loginAdminFn = createServerFn({ method: "POST" })
 
         existingUser = newUser.user;
       } else {
-        // Sync password for existing admin user to match entered password
         await supabaseAdmin.auth.admin.updateUserById(existingUser.id, { password, email_confirm: true });
       }
 
-      // Ensure user has admin role in user_roles
       const { ensureUserRole } = await import("./account.server");
       await ensureUserRole(existingUser.id, "admin");
 
@@ -59,20 +56,22 @@ export const loginMentorFn = createServerFn({ method: "POST" })
     const input = data.username.toLowerCase().trim();
     const password = data.password;
 
-    // Find mentor in mentors table by username, email, or name
+    // Safely query mentors without referencing non-existent username column
     const { data: mentors, error: mErr } = await supabaseAdmin
       .from("mentors")
-      .select("id, name, username, email, status, user_id");
+      .select("id, name, email, status, user_id");
 
     if (mErr || !mentors) {
+      console.error("loginMentorFn mentors query error:", mErr);
       return { ok: false, error: "Gagal mengakses data mentor." };
     }
 
     const mentor = mentors.find(
       (m) =>
-        (m.username && m.username.toLowerCase() === input) ||
         (m.email && m.email.toLowerCase() === input) ||
-        m.name.toLowerCase() === input,
+        (m.email && m.email.split("@")[0].toLowerCase() === input) ||
+        m.name.toLowerCase() === input ||
+        m.name.toLowerCase().replace(/\s+/g, "_") === input,
     );
 
     if (!mentor) {
@@ -83,7 +82,7 @@ export const loginMentorFn = createServerFn({ method: "POST" })
       return { ok: false, error: "Akun Mentor sedang tidak aktif. Silakan hubungi Admin." };
     }
 
-    const authEmail = mentor.email?.toLowerCase().trim() || `${mentor.username || input}@mutabaah.local`;
+    const authEmail = mentor.email?.toLowerCase().trim() || `${input}@mutabaah.local`;
 
     try {
       const { data: usersData } = await supabaseAdmin.auth.admin.listUsers();
@@ -95,10 +94,8 @@ export const loginMentorFn = createServerFn({ method: "POST" })
 
       if (existingUser) {
         authUserId = existingUser.id;
-        // Sync password if user was created or updated by admin
         await supabaseAdmin.auth.admin.updateUserById(authUserId, { password });
       } else {
-        // Create new Auth User for mentor
         const { data: newUser, error: createErr } = await supabaseAdmin.auth.admin.createUser({
           email: authEmail,
           password,
@@ -106,12 +103,11 @@ export const loginMentorFn = createServerFn({ method: "POST" })
         });
         if (createErr || !newUser?.user) {
           console.error("Mentor auth user creation failed:", createErr);
-          return { ok: false, error: "Username atau password salah." };
+          return { ok: false, error: "Gagal otentikasi akun mentor." };
         }
         authUserId = newUser.user.id;
       }
 
-      // Link user_id to mentors table and set mentor role
       await supabaseAdmin.from("mentors").update({ user_id: authUserId }).eq("id", mentor.id);
       await supabaseAdmin.from("user_roles").upsert(
         { user_id: authUserId, role: "mentor" },
