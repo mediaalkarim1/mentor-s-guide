@@ -323,7 +323,7 @@ export function MutabaahForm() {
                             value={String(opt.value)}
                             className="text-xs sm:text-sm py-2 cursor-pointer"
                           >
-                            {opt.label} ({formatDisplayScore(opt.score)})
+                            {opt.label}
                           </SelectItem>
                         ))}
                       </SelectContent>
