@@ -14,9 +14,11 @@ import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as MutabaahRouteImport } from './routes/mutabaah'
+import { Route as PanduanRouteImport } from './routes/panduan'
 import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated/admin'
 import { Route as AuthenticatedBulananRouteImport } from './routes/_authenticated/bulanan'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
+import { Route as AuthenticatedProfilRouteImport } from './routes/_authenticated/profil'
 import { Route as AuthenticatedBinaanBinaanIdRouteImport } from './routes/_authenticated/binaan.$binaanId'
 
 const IndexRoute = IndexRouteImport.update({
@@ -43,6 +45,11 @@ const MutabaahRoute = MutabaahRouteImport.update({
   path: '/mutabaah',
   getParentRoute: () => rootRouteImport,
 } as any)
+const PanduanRoute = PanduanRouteImport.update({
+  id: '/panduan',
+  path: '/panduan',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AuthenticatedAdminRoute = AuthenticatedAdminRouteImport.update({
   id: '/admin',
   path: '/admin',
@@ -58,6 +65,11 @@ const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
   path: '/dashboard',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedProfilRoute = AuthenticatedProfilRouteImport.update({
+  id: '/profil',
+  path: '/profil',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedBinaanBinaanIdRoute =
   AuthenticatedBinaanBinaanIdRouteImport.update({
     id: '/binaan/$binaanId',
@@ -70,9 +82,11 @@ export interface FileRoutesByFullPath {
   '/auth': typeof AuthRoute
   '/login': typeof LoginRoute
   '/mutabaah': typeof MutabaahRoute
+  '/panduan': typeof PanduanRoute
   '/admin': typeof AuthenticatedAdminRoute
   '/bulanan': typeof AuthenticatedBulananRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
+  '/profil': typeof AuthenticatedProfilRoute
   '/binaan/$binaanId': typeof AuthenticatedBinaanBinaanIdRoute
 }
 export interface FileRoutesByTo {
@@ -80,9 +94,11 @@ export interface FileRoutesByTo {
   '/auth': typeof AuthRoute
   '/login': typeof LoginRoute
   '/mutabaah': typeof MutabaahRoute
+  '/panduan': typeof PanduanRoute
   '/admin': typeof AuthenticatedAdminRoute
   '/bulanan': typeof AuthenticatedBulananRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
+  '/profil': typeof AuthenticatedProfilRoute
   '/binaan/$binaanId': typeof AuthenticatedBinaanBinaanIdRoute
 }
 export interface FileRoutesById {
@@ -92,9 +108,11 @@ export interface FileRoutesById {
   '/auth': typeof AuthRoute
   '/login': typeof LoginRoute
   '/mutabaah': typeof MutabaahRoute
+  '/panduan': typeof PanduanRoute
   '/_authenticated/admin': typeof AuthenticatedAdminRoute
   '/_authenticated/bulanan': typeof AuthenticatedBulananRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
+  '/_authenticated/profil': typeof AuthenticatedProfilRoute
   '/_authenticated/binaan/$binaanId': typeof AuthenticatedBinaanBinaanIdRoute
 }
 export interface FileRouteTypes {
@@ -104,9 +122,11 @@ export interface FileRouteTypes {
     | '/auth'
     | '/login'
     | '/mutabaah'
+    | '/panduan'
     | '/admin'
     | '/bulanan'
     | '/dashboard'
+    | '/profil'
     | '/binaan/$binaanId'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -114,9 +134,11 @@ export interface FileRouteTypes {
     | '/auth'
     | '/login'
     | '/mutabaah'
+    | '/panduan'
     | '/admin'
     | '/bulanan'
     | '/dashboard'
+    | '/profil'
     | '/binaan/$binaanId'
   id:
     | '__root__'
@@ -125,9 +147,11 @@ export interface FileRouteTypes {
     | '/auth'
     | '/login'
     | '/mutabaah'
+    | '/panduan'
     | '/_authenticated/admin'
     | '/_authenticated/bulanan'
     | '/_authenticated/dashboard'
+    | '/_authenticated/profil'
     | '/_authenticated/binaan/$binaanId'
   fileRoutesById: FileRoutesById
 }
@@ -137,6 +161,7 @@ export interface RootRouteChildren {
   AuthRoute: typeof AuthRoute
   LoginRoute: typeof LoginRoute
   MutabaahRoute: typeof MutabaahRoute
+  PanduanRoute: typeof PanduanRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -176,6 +201,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof MutabaahRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/panduan': {
+      id: '/panduan'
+      path: '/panduan'
+      fullPath: '/panduan'
+      preLoaderRoute: typeof PanduanRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/_authenticated/admin': {
       id: '/_authenticated/admin'
       path: '/admin'
@@ -197,6 +229,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedDashboardRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/profil': {
+      id: '/_authenticated/profil'
+      path: '/profil'
+      fullPath: '/profil'
+      preLoaderRoute: typeof AuthenticatedProfilRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/binaan/$binaanId': {
       id: '/_authenticated/binaan/$binaanId'
       path: '/binaan/$binaanId'
@@ -211,6 +250,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedAdminRoute: typeof AuthenticatedAdminRoute
   AuthenticatedBulananRoute: typeof AuthenticatedBulananRoute
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
+  AuthenticatedProfilRoute: typeof AuthenticatedProfilRoute
   AuthenticatedBinaanBinaanIdRoute: typeof AuthenticatedBinaanBinaanIdRoute
 }
 
@@ -218,6 +258,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedAdminRoute: AuthenticatedAdminRoute,
   AuthenticatedBulananRoute: AuthenticatedBulananRoute,
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
+  AuthenticatedProfilRoute: AuthenticatedProfilRoute,
   AuthenticatedBinaanBinaanIdRoute: AuthenticatedBinaanBinaanIdRoute,
 }
 
@@ -230,6 +271,7 @@ const rootRouteChildren: RootRouteChildren = {
   AuthRoute: AuthRoute,
   LoginRoute: LoginRoute,
   MutabaahRoute: MutabaahRoute,
+  PanduanRoute: PanduanRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
