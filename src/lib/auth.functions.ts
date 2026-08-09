@@ -21,11 +21,10 @@ export const loginAdminFn = createServerFn({ method: "POST" })
     // Check if user exists in Supabase Auth via admin client
     try {
       const { data: usersData } = await supabaseAdmin.auth.admin.listUsers();
-      const existingUser = usersData?.users?.find(
+      let existingUser = usersData?.users?.find(
         (u) => u.email?.toLowerCase() === email,
       );
 
-      // If no admin user exists at all, bootstrap first admin account
       if (!existingUser) {
         const { data: newUser, error: createErr } = await supabaseAdmin.auth.admin.createUser({
           email,
@@ -33,30 +32,21 @@ export const loginAdminFn = createServerFn({ method: "POST" })
           email_confirm: true,
         });
 
-        if (createErr) {
-          return { ok: false, error: "Email atau password salah." };
+        if (createErr || !newUser?.user) {
+          return { ok: false, error: "Gagal membuat akun admin: " + (createErr?.message ?? "") };
         }
 
-        if (newUser?.user) {
-          await supabaseAdmin.from("user_roles").upsert(
-            { user_id: newUser.user.id, role: "admin" },
-            { onConflict: "user_id,role" },
-          );
-        }
+        existingUser = newUser.user;
       } else {
-        // Ensure user has admin role in user_roles
-        const { data: roles } = await supabaseAdmin
-          .from("user_roles")
-          .select("role")
-          .eq("user_id", existingUser.id);
-        const roleList = (roles ?? []).map((r) => r.role);
-        if (!roleList.includes("admin")) {
-          await supabaseAdmin.from("user_roles").upsert(
-            { user_id: existingUser.id, role: "admin" },
-            { onConflict: "user_id,role" },
-          );
-        }
+        // Sync password for existing admin user to match entered password
+        await supabaseAdmin.auth.admin.updateUserById(existingUser.id, { password, email_confirm: true });
       }
+
+      // Ensure user has admin role in user_roles
+      await supabaseAdmin.from("user_roles").upsert(
+        { user_id: existingUser.id, role: "admin" },
+        { onConflict: "user_id,role" },
+      );
 
       return { ok: true, email };
     } catch (e: any) {

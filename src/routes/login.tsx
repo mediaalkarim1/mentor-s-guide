@@ -152,7 +152,7 @@ function LoginPage() {
                     maxLength={255}
                     value={adminEmail}
                     onChange={(e) => setAdminEmail(e.target.value)}
-                    placeholder="Masukkan email admin"
+                    placeholder="admin@mutabaah.sch.id"
                   />
                 </div>
                 <div className="space-y-1.5">
@@ -172,6 +172,18 @@ function LoginPage() {
                   {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                   LOGIN ADMIN
                 </Button>
+                <div className="pt-1 text-center">
+                  <button
+                    type="button"
+                    className="text-xs text-primary hover:underline font-medium"
+                    onClick={() => {
+                      setAdminEmail("admin@mutabaah.sch.id");
+                      setAdminPassword("admin123");
+                    }}
+                  >
+                    Gunakan Email & Password Demo Admin
+                  </button>
+                </div>
               </form>
             </TabsContent>
 
@@ -186,7 +198,7 @@ function LoginPage() {
                     maxLength={100}
                     value={mentorUsername}
                     onChange={(e) => setMentorUsername(e.target.value)}
-                    placeholder="Masukkan username mentor (contoh: abi_azam)"
+                    placeholder="abi_azam"
                   />
                 </div>
                 <div className="space-y-1.5">
@@ -206,6 +218,18 @@ function LoginPage() {
                   {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                   LOGIN MENTOR
                 </Button>
+                <div className="pt-1 text-center">
+                  <button
+                    type="button"
+                    className="text-xs text-primary hover:underline font-medium"
+                    onClick={() => {
+                      setMentorUsername("abi_azam");
+                      setMentorPassword("mentor123");
+                    }}
+                  >
+                    Gunakan Username & Password Demo (Abi Azam)
+                  </button>
+                </div>
               </form>
             </TabsContent>
           </Tabs>
