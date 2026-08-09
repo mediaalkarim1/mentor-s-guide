@@ -284,7 +284,7 @@ export function MutabaahForm() {
             <div className="space-y-3">
               {indicators.map((item, idx) => {
                 const val = values[item.id] ?? "";
-                const opts = optionsFor(item.target);
+                const opts = optionsFor(item.code, item.target, item.unit);
 
                 return (
                   <div

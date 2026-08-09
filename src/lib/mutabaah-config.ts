@@ -1,4 +1,4 @@
-export type CapaianOption = { label: string; value: number };
+export type CapaianOption = { label: string; value: number; score?: number };
 
 export type IndicatorOptionMap = Record<string, CapaianOption[]>;
 
@@ -9,6 +9,43 @@ const xOptions = (max: number): CapaianOption[] =>
   }));
 
 export const INDICATOR_OPTIONS: IndicatorOptionMap = {
+  // Preset by code
+  tla: [
+    { label: "0 juz", value: 0 },
+    { label: "¼ juz", value: 0.25 },
+    { label: "½ juz", value: 0.5 },
+    { label: "¾ juz", value: 0.75 },
+    { label: "1 juz atau lebih", value: 1 },
+  ],
+  sld: xOptions(5),
+  slm: xOptions(2),
+  slw: [
+    { label: "0 kali", value: 0 },
+    { label: "5 kali", value: 5 },
+    { label: "10 kali", value: 10 },
+    { label: "15 kali", value: 15 },
+    { label: "20 kali", value: 20 },
+    { label: "25 kali atau lebih", value: 25 },
+  ],
+  slr: [
+    { label: "0 rakaat / kali", value: 0 },
+    { label: "1–5 kali", value: 5 },
+    { label: "6–10 kali", value: 10 },
+    { label: "11–13 kali", value: 13 },
+    { label: "14 kali atau lebih", value: 14 },
+  ],
+  zkm: xOptions(5),
+  ifr: xOptions(2),
+  psn: xOptions(1),
+  bkl: [
+    { label: "0 halaman", value: 0 },
+    { label: "5 halaman", value: 5 },
+    { label: "10 halaman", value: 10 },
+    { label: "15 halaman", value: 15 },
+    { label: "20 halaman atau lebih", value: 20 },
+  ],
+
+  // Legacy preset keys
   tahajud: xOptions(3),
   witir: xOptions(3),
   dhuha: xOptions(5),
@@ -32,13 +69,32 @@ export const INDICATOR_OPTIONS: IndicatorOptionMap = {
   infak: xOptions(3),
 };
 
-export function optionsFor(code: string, target: number, unit: string): CapaianOption[] {
+export function optionsFor(codeOrTarget: string | number, target?: number, unit?: string): CapaianOption[] {
+  if (typeof codeOrTarget === "number") {
+    const max = Math.max(1, Math.round(codeOrTarget));
+    return Array.from({ length: max + 1 }, (_, i) => ({
+      label: i === max ? `${i} atau lebih` : `${i}`,
+      value: i,
+      score: scoreFor(i, codeOrTarget),
+    }));
+  }
+
+  const code = (codeOrTarget ?? "").toLowerCase().trim();
+  const tgt = target ?? 1;
   const preset = INDICATOR_OPTIONS[code];
-  if (preset) return preset;
-  const max = Math.max(1, Math.round(target));
+  if (preset) {
+    return preset.map((opt) => ({
+      ...opt,
+      score: scoreFor(opt.value, tgt),
+    }));
+  }
+
+  const max = Math.max(1, Math.round(tgt));
+  const u = unit ?? "";
   return Array.from({ length: max + 1 }, (_, i) => ({
-    label: i === max ? `${i} ${unit} atau lebih` : `${i} ${unit}`,
+    label: i === max ? `${i} ${u} atau lebih`.trim() : `${i} ${u}`.trim(),
     value: i,
+    score: scoreFor(i, tgt),
   }));
 }
 
