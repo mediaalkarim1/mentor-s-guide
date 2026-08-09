@@ -37,6 +37,7 @@ jobs:
         env:
           VITE_SUPABASE_URL: "https://mvbmkbkgjmvyvadhqbvu.supabase.co"
           VITE_SUPABASE_PUBLISHABLE_KEY: "sb_publishable_Z1V67PzE6L34-N7L6J9X1Q"
+          GITHUB_PAGES: "true"
         run: npm run build:gh-pages
 
       - name: Upload GitHub Pages Artifact

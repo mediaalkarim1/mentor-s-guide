@@ -4,6 +4,7 @@ import path from "node:path";
 function prepareGhPages() {
   const outputPublicDir = path.join(process.cwd(), ".output", "public");
   const distDir = path.join(process.cwd(), "dist");
+  const basePath = "/mentor-s-guide/";
 
   if (!fs.existsSync(outputPublicDir)) {
     console.error("Error: .output/public does not exist. Please run build first.");
@@ -45,8 +46,8 @@ function prepareGhPages() {
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Sora:wght@500;600;700&display=swap" />
-    ${cssFile ? `<link rel="stylesheet" href="./assets/${cssFile}" />` : ""}
-    <link rel="icon" href="./favicon.ico" type="image/x-icon" />
+    ${cssFile ? `<link rel="stylesheet" href="${basePath}assets/${cssFile}" />` : ""}
+    <link rel="icon" href="${basePath}favicon.ico" type="image/x-icon" />
     <script>
       // Single Page Apps for GitHub Pages SPA Routing Fallback
       (function(l) {
@@ -63,7 +64,7 @@ function prepareGhPages() {
   </head>
   <body>
     <div id="root"></div>
-    ${jsFile ? `<script type="module" src="./assets/${jsFile}"></script>` : ""}
+    ${jsFile ? `<script type="module" src="${basePath}assets/${jsFile}"></script>` : ""}
   </body>
 </html>
 `;
