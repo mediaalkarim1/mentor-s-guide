@@ -2,166 +2,24 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 type DB = SupabaseClient<any, "public", any>;
 
-const MASTER_SEED_DATA = [
+export const EXACT_MASTER_DATA = [
   {
-    id: "a1000000-0000-0000-0000-000000000001",
-    name: "Umi Indah",
-    username: "umi_indah",
-    email: "umi_indah@mutabaah.local",
-    binaan: [
-      "Umi Frisca",
-      "Umi Nina",
-      "Umi Nely",
-      "Umi Atika",
-      "Umi Yuni",
-      "Umi Desty",
-      "Umi Aulia",
-      "Ummi Ovi",
-      "Ummi Lia",
-      "Ummi Keinida",
-      "Ummi Dewi Permata",
-    ],
-  },
-  {
-    id: "a1000000-0000-0000-0000-000000000002",
-    name: "Umi Melisa",
-    username: "umi_melisa",
-    email: "umi_melisa@mutabaah.local",
-    binaan: [
-      "Umi Yulinda",
-      "Umi Nesa",
-      "Umi Rizka",
-      "Umi Uswah",
-      "Umi Duwi",
-      "Umi Harvey",
-      "Umi Tirka",
-    ],
-  },
-  {
-    id: "a1000000-0000-0000-0000-000000000003",
-    name: "Umi Navi",
-    username: "umi_navi",
-    email: "umi_navi@mutabaah.local",
-    binaan: [
-      "Umi Puput",
-      "Umi Retno",
-      "Umi Fatimah",
-      "Umi Dilla",
-      "Umi Ranti",
-      "Umi Eka",
-      "Umi Cindy",
-    ],
-  },
-  {
-    id: "a1000000-0000-0000-0000-000000000004",
-    name: "Umi Novi",
-    username: "umi_novi",
-    email: "umi_novi@mutabaah.local",
-    binaan: [
-      "Umi Rizki",
-      "Umi Ayu",
-      "Umi Aziza",
-      "Umi Rafika",
-      "Umi Suci",
-      "Umi Raya",
-      "Umi Imel",
-    ],
-  },
-  {
-    id: "a1000000-0000-0000-0000-000000000005",
-    name: "Umi Okti",
-    username: "umi_okti",
-    email: "umi_okti@mutabaah.local",
-    binaan: [
-      "Umi Fina",
-      "Umi Caca",
-      "Umi Fitri",
-      "Umi Meiga",
-      "Umi Salfa",
-      "Umi Nanda",
-      "Umi Noor",
-    ],
-  },
-  {
-    id: "a1000000-0000-0000-0000-000000000006",
-    name: "Umi Ditha",
-    username: "umi_ditha",
-    email: "umi_ditha@mutabaah.local",
-    binaan: [
-      "Umi Anisa",
-      "Umi Salsa",
-      "Umi Yulia",
-      "Umi Khofifah",
-      "Umi Septia",
-      "Umi Sri",
-      "Umi Rani",
-    ],
-  },
-  {
-    id: "11111111-1111-1111-1111-111111111111",
     name: "Abi Azam",
+    aliases: ["abi azam", "abi_azam"],
     username: "abi_azam",
     email: "abi_azam@mutabaah.local",
-    binaan: ["Abi Erle", "Abi Helmi", "Abi Ma’ares", "Abi Willy"],
+    binaan: ["Abi Erle", "Abi Helmi", "Abi Ma'ares", "Abi Willy"],
   },
   {
-    id: "a1000000-0000-0000-0000-000000000008",
-    name: "Umi Resty",
-    username: "umi_resty",
-    email: "umi_resty@mutabaah.local",
-    binaan: [
-      "Umi Dewi",
-      "Umi Leni",
-      "Umi Puja",
-      "Umi Salsa",
-      "Umi Putri Delima",
-      "Umi Iis",
-      "Umi Alin Diana",
-      "Umi Adel",
-      "Umi Shinta",
-    ],
-  },
-  {
-    id: "a1000000-0000-0000-0000-000000000009",
-    name: "Umi Nia",
-    username: "umi_nia",
-    email: "umi_nia@mutabaah.local",
-    binaan: [
-      "Umi Putri",
-      "Umi Fitri",
-      "Umi Dinda",
-      "Umi Sari",
-      "Umi Meita",
-      "Umi Mita",
-      "Umi Gea",
-      "Umi Alin Diana Sari",
-      "Umi Dwi",
-    ],
-  },
-  {
-    id: "a1000000-0000-0000-0000-000000000010",
-    name: "Umi Tiwi",
-    username: "umi_tiwi",
-    email: "umi_tiwi@mutabaah.local",
-    binaan: ["Ummi Reka", "Ummi Yumi", "Ummi Lily", "Ummi Ira"],
-  },
-  {
-    id: "a1000000-0000-0000-0000-000000000011",
-    name: "Umi Miftah",
-    username: "umi_miftah",
-    email: "umi_miftah@mutabaah.local",
-    binaan: ["Umi Sylvi", "Umi Yeni", "Umi Sisca", "Umi Isda"],
-  },
-  {
-    id: "a1000000-0000-0000-0000-000000000012",
     name: "Abi Endi",
+    aliases: ["abi endi", "abi_endi"],
     username: "abi_endi",
     email: "abi_endi@mutabaah.local",
     binaan: ["Abi Gilang", "Abi Ikmal", "Abi Hadi", "Abi Izhan", "Abi Huda"],
   },
   {
-    id: "a1000000-0000-0000-0000-000000000013",
     name: "Abi Tama",
+    aliases: ["abi tama", "abi_tama"],
     username: "abi_tama",
     email: "abi_tama@mutabaah.local",
     binaan: [
@@ -177,47 +35,193 @@ const MASTER_SEED_DATA = [
       "Om Deni",
     ],
   },
+  {
+    name: "Umi Ditha",
+    aliases: ["umi ditha", "umi_ditha"],
+    username: "umi_ditha",
+    email: "umi_ditha@mutabaah.local",
+    binaan: [
+      "Umi Anisa",
+      "Umi Salsha",
+      "Umi Yulia",
+      "Umi Khofifah",
+      "Umi Septia",
+      "Umi Sri",
+      "Umi Rani",
+    ],
+  },
+  {
+    name: "Umi Indah",
+    aliases: ["umi indah", "umi_indah"],
+    username: "umi_indah",
+    email: "umi_indah@mutabaah.local",
+    binaan: ["Ummi Ovi", "Ummi Lia", "Ummi Keinida", "Ummi Dewi Permata"],
+  },
+  {
+    name: "Umi Melisa",
+    aliases: ["umi melisa", "umi_melisa"],
+    username: "umi_melisa",
+    email: "umi_melisa@mutabaah.local",
+    binaan: [
+      "Umi Yulinda",
+      "Umi Nesa",
+      "Umi Rizka",
+      "Umi Uswah",
+      "Umi Duwi",
+      "Umi Harvey",
+      "Umi Tirka",
+    ],
+  },
+  {
+    name: "Umi Miftah",
+    aliases: ["umi miftah", "umi_miftah"],
+    username: "umi_miftah",
+    email: "umi_miftah@mutabaah.local",
+    binaan: ["Umi Sylvi", "Umi Yeni", "Umi Sisca", "Umi Isda"],
+  },
+  {
+    name: "Umi Navi",
+    aliases: ["umi navi", "umi_navi"],
+    username: "umi_navi",
+    email: "umi_navi@mutabaah.local",
+    binaan: [
+      "Umi Puput",
+      "Umi Retno",
+      "Umi Fatimah",
+      "Umi Dilla",
+      "Umi Ranti",
+      "Umi Eka",
+      "Umi Cindy",
+    ],
+  },
+  {
+    name: "Umi Nia",
+    aliases: ["umi nia", "umi_nia"],
+    username: "umi_nia",
+    email: "umi_nia@mutabaah.local",
+    binaan: [
+      "Umi Putri",
+      "Umi Fitri",
+      "Umi Dinda",
+      "Umi Sari",
+      "Umi Meita",
+      "Umi Mita",
+      "Umi Gea",
+      "Umi Alin Diana Sari",
+      "Umi Dwi",
+    ],
+  },
+  {
+    name: "Umi Novi",
+    aliases: ["umi novi", "umi_novi"],
+    username: "umi_novi",
+    email: "umi_novi@mutabaah.local",
+    binaan: [
+      "Umi Rizki",
+      "Umi Ayu",
+      "Umi Aziza",
+      "Umi Rafika",
+      "Umi Suci",
+      "Umi Raya",
+      "Umi Imel",
+    ],
+  },
+  {
+    name: "Umi Okt",
+    aliases: ["umi okt", "umi okta", "umi okti", "umi_okt", "umi_okti"],
+    username: "umi_okti",
+    email: "umi_okti@mutabaah.local",
+    binaan: [
+      "Umi Fina",
+      "Umi Caca",
+      "Umi Fitri",
+      "Umi Meiga",
+      "Umi Salfa",
+      "Umi Nanda",
+      "Umi Noor",
+    ],
+  },
+  {
+    name: "Umi Resty",
+    aliases: ["umi resty", "umi_resty"],
+    username: "umi_resty",
+    email: "umi_resty@mutabaah.local",
+    binaan: [
+      "Umi Dewi",
+      "Umi Leni",
+      "Umi Puja",
+      "Umi Salsa",
+      "Umi Putri Delima",
+      "Umi Lis",
+      "Umi Alin Diana",
+      "Umi Adel",
+      "Umi Shinta",
+    ],
+  },
+  {
+    name: "Umi Tiwi",
+    aliases: ["umi tiwi", "umi_tiwi"],
+    username: "umi_tiwi",
+    email: "umi_tiwi@mutabaah.local",
+    binaan: ["Ummi Reka", "Ummi Yumi", "Ummi Lily", "Ummi Ira"],
+  },
 ];
 
 async function ensureMasterDataSeeded(supabase: DB) {
-  const { data: existingMentors } = await supabase.from("mentors").select("id, name, username");
-  const mentorMap = new Map((existingMentors ?? []).map((m) => [m.name, m.id]));
+  const { data: existingMentors } = await supabase.from("mentors").select("id, name, username, email, status");
+  const mentorList = existingMentors ?? [];
 
-  for (const mData of MASTER_SEED_DATA) {
-    let mentorId = mentorMap.get(mData.name);
+  for (const mData of EXACT_MASTER_DATA) {
+    let mentor = mentorList.find((m) =>
+      mData.aliases.some((a) => m.name.toLowerCase().includes(a) || m.username?.toLowerCase() === a)
+    );
+
+    let mentorId = mentor?.id;
 
     if (!mentorId) {
       const { data: inserted } = await supabase
         .from("mentors")
-        .insert({ id: mData.id, name: mData.name, username: mData.username, email: mData.email, status: "active" })
+        .insert({ name: mData.name, username: mData.username, email: mData.email, status: "active" })
         .select("id")
         .maybeSingle();
 
       if (inserted?.id) {
         mentorId = inserted.id;
-        mentorMap.set(mData.name, mentorId);
       }
     } else {
-      // Update username if missing
-      await supabase.from("mentors").update({ username: mData.username }).eq("id", mentorId);
+      await supabase
+        .from("mentors")
+        .update({ name: mData.name, username: mData.username, email: mData.email, status: "active" })
+        .eq("id", mentorId);
     }
 
     if (mentorId) {
       const { data: existingBinaan } = await supabase
         .from("binaan")
-        .select("name")
+        .select("id, name")
         .eq("mentor_id", mentorId);
-      const existingBinaanNames = new Set((existingBinaan ?? []).map((b) => b.name));
+      
+      const existingMap = new Map((existingBinaan ?? []).map((b) => [b.name.toLowerCase().trim(), b.id]));
 
-      const missingBinaan = mData.binaan.filter((bName) => !existingBinaanNames.has(bName));
-      if (missingBinaan.length > 0) {
-        await supabase.from("binaan").insert(
-          missingBinaan.map((bName) => ({
-            name: bName,
-            mentor_id: mentorId!,
-            status: "active",
-          })),
-        );
+      for (const bName of mData.binaan) {
+        const key = bName.toLowerCase().trim();
+        const existingId = existingMap.get(key);
+
+        if (!existingId) {
+          const { data: unmapped } = await supabase
+            .from("binaan")
+            .select("id")
+            .ilike("name", bName)
+            .maybeSingle();
+
+          if (unmapped?.id) {
+            await supabase.from("binaan").update({ mentor_id: mentorId, status: "active" }).eq("id", unmapped.id);
+          } else {
+            await supabase.from("binaan").insert({ name: bName, mentor_id: mentorId, status: "active" });
+          }
+        } else {
+          await supabase.from("binaan").update({ status: "active" }).eq("id", existingId);
+        }
       }
     }
   }
@@ -235,20 +239,11 @@ export async function loadAdminData(supabase: DB) {
     // fallback to provided client
   }
 
-  let { data: mentorsData } = await db.from("mentors").select("id, name, email, username, status").order("name");
-  let { data: binaanData, error: bErr } = await db.from("binaan").select("id, name, mentor_id, phone, status").order("name");
-  if (bErr || !binaanData) {
-    const fallback = await db.from("binaan").select("id, name, mentor_id, phone, status").order("name");
-    binaanData = fallback.data ?? [];
-  }
+  // Run database sync to guarantee all 13 mentors and 84 binaan are present & mapped
+  await ensureMasterDataSeeded(db);
 
-  if (!mentorsData || mentorsData.length < 13 || !binaanData || binaanData.length < 85) {
-    await ensureMasterDataSeeded(db);
-    const mRes = await db.from("mentors").select("id, name, email, username, status").order("name");
-    const bRes = await db.from("binaan").select("id, name, mentor_id, phone, status").order("name");
-    mentorsData = mRes.data ?? [];
-    binaanData = bRes.data ?? [];
-  }
+  let { data: mentorsData } = await db.from("mentors").select("id, name, email, username, status").order("name");
+  let { data: binaanData } = await db.from("binaan").select("id, name, mentor_id, phone, status").order("name");
 
   const [indicators, periods] = await Promise.all([
     db
