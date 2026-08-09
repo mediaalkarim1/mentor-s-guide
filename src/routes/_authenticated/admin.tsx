@@ -7,6 +7,7 @@ import { toast } from "sonner";
 
 import {
   deleteBinaan,
+  deleteMentor,
   getAdminData,
   restoreBinaan,
   saveBinaan,
