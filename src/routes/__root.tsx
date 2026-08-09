@@ -35,38 +35,42 @@ function NotFoundComponent() {
   );
 }
 
-function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
-  console.error(error);
-  const router = useRouter();
+function ErrorComponent({ error }: { error: Error; reset: () => void }) {
+  console.error("[Root Error Boundary]", error);
   useEffect(() => {
     reportLovableError(error, { boundary: "tanstack_root_error_component" });
   }, [error]);
 
+  const errorMessage = error?.message || "Terjadi kesalahan sistem perutean.";
+  const isAuthError =
+    errorMessage.toLowerCase().includes("unauthorized") ||
+    errorMessage.toLowerCase().includes("session") ||
+    errorMessage.toLowerCase().includes("login");
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background px-4">
-      <div className="max-w-md text-center">
-        <h1 className="text-xl font-semibold tracking-tight text-foreground">
-          This page didn't load
+    <div className="flex min-h-screen items-center justify-center bg-background px-4 py-12">
+      <div className="max-w-md w-full surface-card p-8 text-center space-y-4 border border-border rounded-xl shadow-sm">
+        <h1 className="text-xl font-bold tracking-tight text-foreground">
+          {isAuthError ? "Sesi Login Diperlukan" : "Gagal Memuat Halaman"}
         </h1>
-        <p className="mt-2 text-sm text-muted-foreground">
-          Something went wrong on our end. You can try refreshing or head back home.
+        <p className="text-sm text-muted-foreground">
+          {isAuthError
+            ? "Sesi login Anda tidak ditemukan atau telah berakhir. Silakan masuk kembali."
+            : errorMessage}
         </p>
-        <div className="mt-6 flex flex-wrap justify-center gap-2">
-          <button
-            onClick={() => {
-              router.invalidate();
-              reset();
-            }}
+        <div className="pt-4 flex flex-wrap justify-center gap-2">
+          <Link
+            to="/login"
             className="inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
           >
-            Try again
-          </button>
-          <a
-            href="/"
+            Ke Halaman Login
+          </Link>
+          <Link
+            to="/mutabaah"
             className="inline-flex items-center justify-center rounded-md border border-input bg-background px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-accent"
           >
-            Go home
-          </a>
+            Form Mutabaah
+          </Link>
         </div>
       </div>
     </div>
