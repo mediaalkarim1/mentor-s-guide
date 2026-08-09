@@ -173,51 +173,24 @@ async function ensureMasterDataSeeded(supabase: DB) {
     const { data: existingMentors } = await supabase.from("mentors").select("id, name, email, status");
     const mentorList = existingMentors ?? [];
 
+    // STRICT RULE: Only seed initial master data if database has 0 mentors.
+    // If mentors already exist in DB, NEVER re-seed or overwrite user edits!
+    if (mentorList.length > 0) {
+      return;
+    }
+
     for (const mData of EXACT_MASTER_DATA) {
-      let mentor = mentorList.find((m) =>
-        mData.aliases.some((a) => m.name.toLowerCase().includes(a) || (m.email && m.email.toLowerCase().includes(a)))
-      );
+      const { data: inserted } = await supabase
+        .from("mentors")
+        .insert({ name: mData.name, email: mData.email, status: "active" })
+        .select("id")
+        .maybeSingle();
 
-      let mentorId = mentor?.id;
-
-      if (!mentorId) {
-        // ONLY insert if mentor does not exist. Never overwrite existing mentors on seed!
-        const { data: inserted } = await supabase
-          .from("mentors")
-          .insert({ name: mData.name, email: mData.email, status: "active" })
-          .select("id")
-          .maybeSingle();
-
-        if (inserted?.id) {
-          mentorId = inserted.id;
-        }
-      }
+      const mentorId = inserted?.id;
 
       if (mentorId) {
-        const { data: existingBinaan } = await supabase
-          .from("binaan")
-          .select("id, name")
-          .eq("mentor_id", mentorId);
-        
-        const existingMap = new Map((existingBinaan ?? []).map((b) => [b.name.toLowerCase().trim(), b.id]));
-
         for (const bName of mData.binaan) {
-          const key = bName.toLowerCase().trim();
-          const existingId = existingMap.get(key);
-
-          if (!existingId) {
-            const { data: unmapped } = await supabase
-              .from("binaan")
-              .select("id")
-              .ilike("name", bName)
-              .maybeSingle();
-
-            if (unmapped?.id) {
-              await supabase.from("binaan").update({ mentor_id: mentorId }).eq("id", unmapped.id);
-            } else {
-              await supabase.from("binaan").insert({ name: bName, mentor_id: mentorId, status: "active" });
-            }
-          }
+          await supabase.from("binaan").insert({ name: bName, mentor_id: mentorId, status: "active" });
         }
       }
     }
@@ -236,7 +209,7 @@ export async function loadAdminData(supabase: DB) {
     // fallback
   }
 
-  // Seed initial master data if database missing records (never overwrites edited rows)
+  // Seed initial master data only if database is completely empty
   await ensureMasterDataSeeded(db);
 
   let { data: mentorsData } = await db.from("mentors").select("id, name, email, status").order("name");
