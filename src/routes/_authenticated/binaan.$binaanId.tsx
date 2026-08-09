@@ -4,7 +4,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { ArrowLeft, Loader2 } from "lucide-react";
 
 import { getBinaanDetail } from "@/lib/recap.functions";
-import { formatPeriod } from "@/lib/mutabaah-config";
+import { formatDisplayScore, formatPeriod } from "@/lib/mutabaah-config";
 import { ScoreBadge } from "@/components/ScoreBadge";
 
 export const Route = createFileRoute("/_authenticated/binaan/$binaanId")({
@@ -81,7 +81,9 @@ function BinaanDetailPage() {
                 <td className="px-4 py-3">
                   {e.realization} {e.unit}
                 </td>
-                <td className="px-4 py-3 text-right font-semibold tabular-nums">{e.score}</td>
+                <td className="px-4 py-3 text-right font-semibold tabular-nums">
+                  {formatDisplayScore(e.score)}
+                </td>
               </tr>
             ))}
             {data.entries.length === 0 && (
@@ -109,7 +111,9 @@ function BinaanDetailPage() {
             {data.history.map((h) => (
               <tr key={h.periodId}>
                 <td className="px-4 py-3">{formatPeriod(h.start_date, h.end_date)}</td>
-                <td className="px-4 py-3 text-center font-semibold tabular-nums">{h.score}</td>
+                <td className="px-4 py-3 text-center font-semibold tabular-nums">
+                  {formatDisplayScore(h.score)}
+                </td>
                 <td className="px-4 py-3">
                   <ScoreBadge score={h.score} />
                 </td>

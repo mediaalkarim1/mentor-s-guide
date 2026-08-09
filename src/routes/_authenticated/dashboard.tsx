@@ -6,7 +6,7 @@ import { Download, Loader2 } from "lucide-react";
 
 import { getExportRows, getMentorRecap } from "@/lib/recap.functions";
 import { getAdminData } from "@/lib/admin.functions";
-import { formatPeriod } from "@/lib/mutabaah-config";
+import { formatDisplayScore, formatPeriod } from "@/lib/mutabaah-config";
 import { ScoreBadge } from "@/components/ScoreBadge";
 import { Button } from "@/components/ui/button";
 import { downloadCsv } from "@/lib/export";
@@ -62,8 +62,8 @@ function DashboardPage() {
       r.mentor,
       r.binaan,
       r.period,
-      ...r.scores.map((s) => String(s.score)),
-      String(r.total),
+      ...r.scores.map((s) => formatDisplayScore(s.score)),
+      formatDisplayScore(r.total),
     ]);
     downloadCsv("rekap-mutabaah.csv", [header, ...body]);
   }
@@ -136,7 +136,7 @@ function DashboardPage() {
       </div>
 
       <div className="grid grid-cols-3 gap-3">
-        <Stat label="Rata-rata Nilai" value={String(recap.average)} />
+        <Stat label="Rata-rata Nilai" value={formatDisplayScore(recap.average)} />
         <Stat label="Sudah Mengisi" value={String(recap.filledCount)} />
         <Stat label="Belum Mengisi" value={String(recap.missingCount)} />
       </div>
@@ -171,11 +171,11 @@ function DashboardPage() {
                 </td>
                 {recap.indicators.map((i) => (
                   <td key={i.id} className="px-3 py-3 text-center tabular-nums">
-                    {row.filled ? (row.scores[i.id] ?? 0) : "–"}
+                    {row.filled ? formatDisplayScore(row.scores[i.id]) : "-"}
                   </td>
                 ))}
                 <td className="px-3 py-3 text-center font-semibold tabular-nums">
-                  {row.filled ? row.total : "–"}
+                  {row.filled ? formatDisplayScore(row.total) : "-"}
                 </td>
                 <td className="px-3 py-3">
                   {row.filled ? (

@@ -21,7 +21,7 @@ import {
   resetMentorRecap,
   saveMentorRecapOverride,
 } from "@/lib/recap.functions";
-import { formatPeriod } from "@/lib/mutabaah-config";
+import { formatDisplayScore, formatPeriod } from "@/lib/mutabaah-config";
 import { ScoreBadge } from "@/components/ScoreBadge";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -177,11 +177,11 @@ function AdminPage() {
       </div>
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
-        <Stat label="Mentor" value={d.stats.mentors} />
-        <Stat label="Binaan" value={d.stats.binaan} />
-        <Stat label="Sudah Isi" value={d.stats.filled} />
-        <Stat label="Belum Isi" value={d.stats.missing} />
-        <Stat label="Rata-rata" value={d.stats.average} />
+        <Stat label="Mentor" value={String(d.stats.mentors)} />
+        <Stat label="Binaan" value={String(d.stats.binaan)} />
+        <Stat label="Sudah Isi" value={String(d.stats.filled)} />
+        <Stat label="Belum Isi" value={String(d.stats.missing)} />
+        <Stat label="Rata-rata" value={formatDisplayScore(d.stats.average)} />
       </div>
 
       <div className="surface-card overflow-x-auto">
@@ -291,7 +291,7 @@ function AdminPage() {
                     <td className="px-4 py-3 text-center tabular-nums">{s.filled}</td>
                     <td className="px-4 py-3 text-center tabular-nums">{s.missing}</td>
                     <td className="px-4 py-3 text-center tabular-nums">
-                      <div className="font-semibold">{s.weeklyScore}</div>
+                      <div className="font-semibold">{formatDisplayScore(s.weeklyScore)}</div>
                       <div className="text-[10px] leading-none mt-0.5 font-normal">
                         {s.isOverride ? (
                           <span className="text-amber-600 font-medium dark:text-amber-400">Manual Admin</span>
@@ -301,7 +301,7 @@ function AdminPage() {
                       </div>
                     </td>
                     <td className="px-4 py-3 text-center tabular-nums">
-                      <div>{s.monthlyScore}</div>
+                      <div>{formatDisplayScore(s.monthlyScore)}</div>
                       <div className="text-[10px] leading-none mt-0.5 font-normal">
                         {s.isOverride ? (
                           <span className="text-amber-600 font-medium dark:text-amber-400">Manual Admin</span>
@@ -315,14 +315,14 @@ function AdminPage() {
 
                 {viewMode === "bulanan" && (
                   <td className="px-4 py-3 text-center font-bold text-base tabular-nums">
-                    {s.monthlyScore}
+                    {formatDisplayScore(s.monthlyScore)}
                   </td>
                 )}
 
                 {viewMode === "riwayat" && (
                   <>
-                    <td className="px-4 py-3 text-center font-semibold tabular-nums">{s.weeklyScore}</td>
-                    <td className="px-4 py-3 text-center font-semibold tabular-nums">{s.monthlyScore}</td>
+                    <td className="px-4 py-3 text-center font-semibold tabular-nums">{formatDisplayScore(s.weeklyScore)}</td>
+                    <td className="px-4 py-3 text-center font-semibold tabular-nums">{formatDisplayScore(s.monthlyScore)}</td>
                   </>
                 )}
 
@@ -433,7 +433,7 @@ function AdminPage() {
                           </Badge>
                         </td>
                         <td className="px-3 py-2 text-center tabular-nums font-semibold">
-                          <div>{h.score}</div>
+                          <div>{formatDisplayScore(h.score)}</div>
                           {h.isOverride && (
                             <div className="text-[9px] text-amber-600 dark:text-amber-400 font-normal">
                               Manual Admin
@@ -693,7 +693,7 @@ function AdminPage() {
   );
 }
 
-function Stat({ label, value }: { label: string | number; value: number }) {
+function Stat({ label, value }: { label: string; value: string }) {
   return (
     <div className="surface-card p-4">
       <p className="text-xs text-muted-foreground">{label}</p>

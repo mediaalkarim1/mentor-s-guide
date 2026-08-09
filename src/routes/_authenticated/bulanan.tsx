@@ -5,7 +5,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { Loader2 } from "lucide-react";
 
 import { getMonthlyRecap } from "@/lib/recap.functions";
-import { formatPeriod } from "@/lib/mutabaah-config";
+import { formatDisplayScore, formatPeriod } from "@/lib/mutabaah-config";
 import { ScoreBadge } from "@/components/ScoreBadge";
 import {
   Select,
@@ -89,10 +89,12 @@ function MonthlyPage() {
                 <td className="px-4 py-3 font-medium">{row.mentorName}</td>
                 {row.weekly.map((v, i) => (
                   <td key={i} className="px-4 py-3 text-center tabular-nums">
-                    {v === null ? "–" : v}
+                    {v === null ? "-" : formatDisplayScore(v)}
                   </td>
                 ))}
-                <td className="px-4 py-3 text-center font-semibold tabular-nums">{row.monthly}</td>
+                <td className="px-4 py-3 text-center font-semibold tabular-nums">
+                  {formatDisplayScore(row.monthly)}
+                </td>
                 <td className="px-4 py-3">
                   <ScoreBadge score={row.monthly} />
                 </td>

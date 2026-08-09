@@ -52,6 +52,14 @@ export function averageScore(values: number[]): number {
   return Math.round((values.reduce((a, b) => a + b, 0) / values.length) * 100) / 100;
 }
 
+export function formatDisplayScore(val: number | null | undefined): string {
+  if (val === null || val === undefined || isNaN(val) || !isFinite(val)) {
+    return "-";
+  }
+  const rounded = Math.round(Number(val) * 100) / 100;
+  return Number(rounded.toFixed(2)).toString();
+}
+
 export function categoryFor(score: number): string {
   if (score >= 90) return "Sangat Baik";
   if (score >= 80) return "Baik";
