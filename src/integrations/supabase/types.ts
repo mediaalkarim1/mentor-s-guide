@@ -17,6 +17,7 @@ export type Database = {
       binaan: {
         Row: {
           created_at: string
+          deleted_at: string | null
           id: string
           mentor_id: string
           name: string
@@ -26,6 +27,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          deleted_at?: string | null
           id?: string
           mentor_id: string
           name: string
@@ -35,6 +37,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          deleted_at?: string | null
           id?: string
           mentor_id?: string
           name?: string

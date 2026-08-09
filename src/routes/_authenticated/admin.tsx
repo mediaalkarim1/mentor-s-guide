@@ -6,7 +6,9 @@ import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
 import {
+  deleteBinaan,
   getAdminData,
+  restoreBinaan,
   saveBinaan,
   saveIndicator,
   saveMentor,
@@ -15,6 +17,7 @@ import {
 import { getAdminDashboard } from "@/lib/recap.functions";
 import { formatPeriod } from "@/lib/mutabaah-config";
 import { ScoreBadge } from "@/components/ScoreBadge";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -26,6 +29,23 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 export const Route = createFileRoute("/_authenticated/admin")({
   head: () => ({
@@ -224,67 +244,411 @@ function MentorSection({ rows }: { rows: any[] }) {
 }
 
 function BinaanSection({ rows, mentors }: { rows: any[]; mentors: any[] }) {
-  const save = useSaver(saveBinaan, ["admin-data", "admin-dashboard"]);
+  const queryClient = useQueryClient();
+  const save = useSaver(saveBinaan, ["admin-data", "admin-dashboard", "mentor-recap"]);
+
+  const deleteFn = useServerFn(deleteBinaan);
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => deleteFn({ data: { id } }),
+    onSuccess: (res: any) => {
+      if (res?.ok === false) {
+        toast.error(res.error ?? "Gagal menghapus binaan.");
+        return;
+      }
+      toast.success(
+        res?.mode === "soft"
+          ? "Binaan dinonaktifkan (histori mutabaah tetap tersimpan)."
+          : "Binaan berhasil dihapus.",
+      );
+      queryClient.invalidateQueries({ queryKey: ["admin-data"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-dashboard"] });
+      queryClient.invalidateQueries({ queryKey: ["mentor-recap"] });
+      setDeletingBinaan(null);
+    },
+    onError: () => toast.error("Gagal menghapus binaan."),
+  });
+
+  const restoreFn = useServerFn(restoreBinaan);
+  const restoreMutation = useMutation({
+    mutationFn: (data: { id: string; mentor_id?: string }) => restoreFn({ data }),
+    onSuccess: (res: any) => {
+      if (res?.ok === false) {
+        toast.error(res.error ?? "Gagal mengaktifkan kembali binaan.");
+        return;
+      }
+      toast.success("Binaan berhasil diaktifkan kembali.");
+      queryClient.invalidateQueries({ queryKey: ["admin-data"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-dashboard"] });
+      queryClient.invalidateQueries({ queryKey: ["mentor-recap"] });
+      setRestoringBinaan(null);
+    },
+    onError: () => toast.error("Gagal mengaktifkan kembali binaan."),
+  });
+
+  // State for Add form
   const [name, setName] = useState("");
   const [mentorId, setMentorId] = useState("");
   const [phone, setPhone] = useState("");
 
+  // State for Filter Status: "active" (default) | "inactive" | "all"
+  const [statusFilter, setStatusFilter] = useState<"active" | "inactive" | "all">("active");
+
+  // Edit Modal State
+  const [editingBinaan, setEditingBinaan] = useState<any | null>(null);
+  const [editName, setEditName] = useState("");
+  const [editPhone, setEditPhone] = useState("");
+  const [editMentorId, setEditMentorId] = useState("");
+  const [editStatus, setEditStatus] = useState<"active" | "inactive">("active");
+
+  // Delete Dialog State
+  const [deletingBinaan, setDeletingBinaan] = useState<any | null>(null);
+
+  // Restore Modal State (when mentor is inactive)
+  const [restoringBinaan, setRestoringBinaan] = useState<any | null>(null);
+  const [restoreMentorId, setRestoreMentorId] = useState("");
+
+  const activeMentors = mentors.filter((m) => m.status === "active");
+
+  const filteredRows = rows.filter((b) => {
+    if (statusFilter === "active") return b.status === "active";
+    if (statusFilter === "inactive") return b.status !== "active";
+    return true;
+  });
+
+  const openEditModal = (b: any) => {
+    setEditingBinaan(b);
+    setEditName(b.name);
+    setEditPhone(b.phone ?? "");
+    setEditMentorId(b.mentor_id);
+    setEditStatus(b.status === "active" ? "active" : "inactive");
+  };
+
+  const handleStartRestore = (b: any) => {
+    const currentMentor = mentors.find((m) => m.id === b.mentor_id);
+    if (currentMentor && currentMentor.status === "active") {
+      restoreMutation.mutate({ id: b.id });
+    } else {
+      setRestoringBinaan(b);
+      setRestoreMentorId(activeMentors[0]?.id ?? "");
+    }
+  };
+
   return (
-    <div className="grid gap-4 md:grid-cols-[20rem_1fr]">
-      <Panel title="Tambah Binaan">
-        <form
-          className="space-y-3"
-          onSubmit={(e) => {
-            e.preventDefault();
-            if (!mentorId) {
-              toast.error("Pilih mentor terlebih dahulu.");
-              return;
-            }
-            save.mutate({ name, mentor_id: mentorId, phone: phone || null, status: "active" });
-            setName("");
-            setPhone("");
-          }}
-        >
-          <div className="space-y-1.5">
-            <Label htmlFor="b-name">Nama Binaan</Label>
-            <Input id="b-name" required maxLength={100} value={name} onChange={(e) => setName(e.target.value)} />
-          </div>
-          <div className="space-y-1.5">
-            <Label>Mentor</Label>
-            <Select value={mentorId} onValueChange={setMentorId}>
-              <SelectTrigger>
-                <SelectValue placeholder="Pilih mentor" />
+    <div className="space-y-4">
+      <div className="grid gap-4 md:grid-cols-[20rem_1fr]">
+        <Panel title="Tambah Binaan">
+          <form
+            className="space-y-3"
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (!mentorId) {
+                toast.error("Pilih mentor terlebih dahulu.");
+                return;
+              }
+              save.mutate({ name, mentor_id: mentorId, phone: phone || null, status: "active" });
+              setName("");
+              setPhone("");
+            }}
+          >
+            <div className="space-y-1.5">
+              <Label htmlFor="b-name">Nama Binaan</Label>
+              <Input
+                id="b-name"
+                required
+                maxLength={100}
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Mentor</Label>
+              <Select value={mentorId} onValueChange={setMentorId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Pilih mentor" />
+                </SelectTrigger>
+                <SelectContent>
+                  {activeMentors.map((m) => (
+                    <SelectItem key={m.id} value={m.id}>
+                      {m.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="b-phone">No. HP (opsional)</Label>
+              <Input
+                id="b-phone"
+                maxLength={30}
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+              />
+            </div>
+            <Button type="submit" className="w-full" disabled={save.isPending}>
+              Simpan
+            </Button>
+          </form>
+        </Panel>
+
+        <Panel title="Data Binaan">
+          <div className="mb-4 flex items-center justify-between gap-2 border-b border-border pb-3">
+            <span className="text-xs font-medium text-muted-foreground">Filter Status:</span>
+            <Select
+              value={statusFilter}
+              onValueChange={(val: any) => setStatusFilter(val)}
+            >
+              <SelectTrigger className="w-36">
+                <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {mentors.map((m) => (
-                  <SelectItem key={m.id} value={m.id}>
-                    {m.name}
-                  </SelectItem>
-                ))}
+                <SelectItem value="active">Aktif</SelectItem>
+                <SelectItem value="inactive">Nonaktif</SelectItem>
+                <SelectItem value="all">Semua</SelectItem>
               </SelectContent>
             </Select>
           </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="b-phone">No. HP (opsional)</Label>
-            <Input id="b-phone" maxLength={30} value={phone} onChange={(e) => setPhone(e.target.value)} />
+
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm">
+              <thead className="border-b border-border bg-secondary/40 text-xs font-semibold uppercase text-muted-foreground">
+                <tr>
+                  <th className="px-3 py-2 text-right w-12">No</th>
+                  <th className="px-3 py-2">Nama Binaan</th>
+                  <th className="px-3 py-2">No. HP</th>
+                  <th className="px-3 py-2">Mentor</th>
+                  <th className="px-3 py-2">Status</th>
+                  <th className="px-3 py-2 text-right">Aksi</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {filteredRows.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="py-6 text-center text-xs text-muted-foreground">
+                      Tidak ada data binaan.
+                    </td>
+                  </tr>
+                ) : (
+                  filteredRows.map((b, index) => {
+                    const mentorObj = mentors.find((m) => m.id === b.mentor_id);
+                    const isActive = b.status === "active";
+                    return (
+                      <tr key={b.id} className="hover:bg-muted/30">
+                        <td className="px-3 py-2.5 text-right tabular-nums text-muted-foreground">
+                          {index + 1}
+                        </td>
+                        <td className="px-3 py-2.5 font-medium">{b.name}</td>
+                        <td className="px-3 py-2.5 text-xs text-muted-foreground">
+                          {b.phone ?? "-"}
+                        </td>
+                        <td className="px-3 py-2.5 text-xs">
+                          {mentorObj?.name ?? "-"}
+                        </td>
+                        <td className="px-3 py-2.5">
+                          <Badge variant={isActive ? "default" : "secondary"}>
+                            {isActive ? "Aktif" : "Nonaktif"}
+                          </Badge>
+                        </td>
+                        <td className="px-3 py-2.5 text-right">
+                          <div className="flex items-center justify-end gap-1.5">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => openEditModal(b)}
+                            >
+                              Edit
+                            </Button>
+                            {!isActive && (
+                              <Button
+                                size="sm"
+                                variant="secondary"
+                                disabled={restoreMutation.isPending}
+                                onClick={() => handleStartRestore(b)}
+                              >
+                                Aktifkan Kembali
+                              </Button>
+                            )}
+                            <Button
+                              size="sm"
+                              variant="destructive"
+                              disabled={deleteMutation.isPending}
+                              onClick={() => setDeletingBinaan(b)}
+                            >
+                              Hapus
+                            </Button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
           </div>
-          <Button type="submit" className="w-full" disabled={save.isPending}>
-            Simpan
-          </Button>
-        </form>
-      </Panel>
-      <Panel title="Daftar Binaan">
-        <ul className="divide-y divide-border text-sm">
-          {rows.map((b) => (
-            <li key={b.id} className="flex items-center justify-between py-2">
-              <span className="font-medium">{b.name}</span>
-              <span className="text-xs text-muted-foreground">
-                {mentors.find((m) => m.id === b.mentor_id)?.name ?? "-"}
-              </span>
-            </li>
-          ))}
-        </ul>
-      </Panel>
+        </Panel>
+      </div>
+
+      {/* Edit Binaan Dialog */}
+      <Dialog open={editingBinaan !== null} onOpenChange={(open) => !open && setEditingBinaan(null)}>
+        <DialogContent className="sm:max-w-[26rem]">
+          <DialogHeader>
+            <DialogTitle>Edit Binaan</DialogTitle>
+          </DialogHeader>
+          <form
+            className="space-y-3 py-2"
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (!editingBinaan) return;
+              if (!editMentorId) {
+                toast.error("Pilih mentor terlebih dahulu.");
+                return;
+              }
+              save.mutate({
+                id: editingBinaan.id,
+                name: editName,
+                phone: editPhone || null,
+                mentor_id: editMentorId,
+                status: editStatus,
+              });
+              setEditingBinaan(null);
+            }}
+          >
+            <div className="space-y-1.5">
+              <Label htmlFor="b-edit-name">Nama Binaan</Label>
+              <Input
+                id="b-edit-name"
+                required
+                maxLength={100}
+                value={editName}
+                onChange={(e) => setEditName(e.target.value)}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="b-edit-phone">No. HP (opsional)</Label>
+              <Input
+                id="b-edit-phone"
+                maxLength={30}
+                value={editPhone}
+                onChange={(e) => setEditPhone(e.target.value)}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Mentor</Label>
+              <Select value={editMentorId} onValueChange={setEditMentorId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Pilih mentor" />
+                </SelectTrigger>
+                <SelectContent>
+                  {mentors.map((m) => (
+                    <SelectItem key={m.id} value={m.id}>
+                      {m.name} {m.status !== "active" ? "(Nonaktif)" : ""}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Status</Label>
+              <Select
+                value={editStatus}
+                onValueChange={(val: any) => setEditStatus(val)}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="active">Aktif</SelectItem>
+                  <SelectItem value="inactive">Nonaktif</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <DialogFooter className="pt-2">
+              <Button type="button" variant="outline" onClick={() => setEditingBinaan(null)}>
+                Batal
+              </Button>
+              <Button type="submit" disabled={save.isPending}>
+                Simpan Perubahan
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Confirmation Dialog Hapus Binaan */}
+      <AlertDialog open={deletingBinaan !== null} onOpenChange={(open) => !open && setDeletingBinaan(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Hapus Binaan?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Apakah Anda yakin ingin menghapus{" "}
+              <span className="font-semibold text-foreground">{deletingBinaan?.name}</span>?
+              <br />
+              <br />
+              Data histori mutabaah yang sudah ada akan tetap disimpan untuk keperluan laporan.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Batal</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => {
+                if (deletingBinaan?.id) {
+                  deleteMutation.mutate(deletingBinaan.id);
+                }
+              }}
+            >
+              Hapus Binaan
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Restore Mentor Selection Dialog (If previous mentor is inactive) */}
+      <Dialog open={restoringBinaan !== null} onOpenChange={(open) => !open && setRestoringBinaan(null)}>
+        <DialogContent className="sm:max-w-[26rem]">
+          <DialogHeader>
+            <DialogTitle>Aktifkan Kembali Binaan</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 py-2 text-sm">
+            <p className="text-muted-foreground">
+              Mentor sebelumnya ({mentors.find((m) => m.id === restoringBinaan?.mentor_id)?.name ?? "Tidak Ada"}) sudah tidak aktif. Silakan pilih Mentor yang aktif:
+            </p>
+            <div className="space-y-1.5">
+              <Label>Pilih Mentor Aktif</Label>
+              <Select value={restoreMentorId} onValueChange={setRestoreMentorId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Pilih mentor" />
+                </SelectTrigger>
+                <SelectContent>
+                  {activeMentors.map((m) => (
+                    <SelectItem key={m.id} value={m.id}>
+                      {m.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter className="pt-2">
+            <Button type="button" variant="outline" onClick={() => setRestoringBinaan(null)}>
+              Batal
+            </Button>
+            <Button
+              type="button"
+              disabled={!restoreMentorId || restoreMutation.isPending}
+              onClick={() => {
+                if (restoringBinaan?.id && restoreMentorId) {
+                  restoreMutation.mutate({
+                    id: restoringBinaan.id,
+                    mentor_id: restoreMentorId,
+                  });
+                }
+              }}
+            >
+              Aktifkan Kembali
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

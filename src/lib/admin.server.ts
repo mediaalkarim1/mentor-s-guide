@@ -5,7 +5,7 @@ type DB = SupabaseClient<any, "public", any>;
 export async function loadAdminData(supabase: DB) {
   const [mentors, binaan, indicators, periods] = await Promise.all([
     supabase.from("mentors").select("id, name, email, status").order("name"),
-    supabase.from("binaan").select("id, name, mentor_id, phone, status").order("name"),
+    supabase.from("binaan").select("id, name, mentor_id, phone, status, deleted_at").order("name"),
     supabase
       .from("mutabaah_indicators")
       .select("id, code, name, target, unit, order_number, active")
@@ -32,6 +32,44 @@ export async function upsertRow(supabase: DB, table: string, row: Record<string,
     return { ok: true };
   }
   const { error } = await supabase.from(table).insert(values);
+  if (error) return { ok: false, error: error.message };
+  return { ok: true };
+}
+
+export async function deleteBinaanRow(supabase: DB, binaanId: string) {
+  const { count, error: countError } = await supabase
+    .from("mutabaah_submissions")
+    .select("id", { count: "exact", head: true })
+    .eq("binaan_id", binaanId);
+
+  if (countError) return { ok: false, error: countError.message };
+
+  if (count && count > 0) {
+    const { error } = await supabase
+      .from("binaan")
+      .update({ status: "inactive", deleted_at: new Date().toISOString() })
+      .eq("id", binaanId);
+    if (error) return { ok: false, error: error.message };
+    return { ok: true, mode: "soft" };
+  } else {
+    const { error } = await supabase.from("binaan").delete().eq("id", binaanId);
+    if (error) return { ok: false, error: error.message };
+    return { ok: true, mode: "hard" };
+  }
+}
+
+export async function restoreBinaanRow(
+  supabase: DB,
+  row: { id: string; mentor_id?: string },
+) {
+  const updates: Record<string, unknown> = {
+    status: "active",
+    deleted_at: null,
+  };
+  if (row.mentor_id) {
+    updates.mentor_id = row.mentor_id;
+  }
+  const { error } = await supabase.from("binaan").update(updates).eq("id", row.id);
   if (error) return { ok: false, error: error.message };
   return { ok: true };
 }

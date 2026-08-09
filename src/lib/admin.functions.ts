@@ -65,6 +65,24 @@ export const saveBinaan = createServerFn({ method: "POST" })
     return upsertRow(context.supabase, "binaan", data);
   });
 
+export const deleteBinaan = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data: unknown) => z.object({ id: z.string().uuid() }).parse(data))
+  .handler(async ({ data, context }) => {
+    const { deleteBinaanRow } = await import("./admin.server");
+    return deleteBinaanRow(context.supabase, data.id);
+  });
+
+export const restoreBinaan = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data: unknown) =>
+    z.object({ id: z.string().uuid(), mentor_id: z.string().uuid().optional() }).parse(data),
+  )
+  .handler(async ({ data, context }) => {
+    const { restoreBinaanRow } = await import("./admin.server");
+    return restoreBinaanRow(context.supabase, data);
+  });
+
 export const saveIndicator = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((data: unknown) => indicatorSchema.parse(data))
