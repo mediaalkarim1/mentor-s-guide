@@ -37,7 +37,7 @@ function prepareGhPages() {
   console.log("Found JS asset:", jsFile);
   console.log("Found CSS asset:", cssFile);
 
-  const htmlContent = `<!DOCTYPE html>
+  const indexHtmlContent = `<!DOCTYPE html>
 <html lang="id">
   <head>
     <meta charset="utf-8" />
@@ -49,7 +49,7 @@ function prepareGhPages() {
     ${cssFile ? `<link rel="stylesheet" href="${basePath}assets/${cssFile}" />` : ""}
     <link rel="icon" href="${basePath}favicon.ico" type="image/x-icon" />
     <script>
-      // Single Page Apps for GitHub Pages SPA Routing Fallback
+      // Single Page Apps for GitHub Pages SPA Routing Decode
       (function(l) {
         if (l.search[1] === '/' ) {
           var decoded = l.search.slice(1).split('&').map(function(s) { 
@@ -59,7 +59,7 @@ function prepareGhPages() {
               l.pathname.slice(0, -1) + decoded + l.hash
           );
         }
-      }(window.location))
+      }(window.location));
     </script>
   </head>
   <body>
@@ -69,9 +69,35 @@ function prepareGhPages() {
 </html>
 `;
 
+  const html404Content = `<!DOCTYPE html>
+<html lang="id">
+  <head>
+    <meta charset="utf-8" />
+    <title>Mutabaah Guru</title>
+    <script>
+      // Single Page Apps for GitHub Pages 404 Redirect
+      (function(l) {
+        if (l.pathname.length > 1) {
+          var pathSegments = l.pathname.slice(1).split('/');
+          var repo = pathSegments[0];
+          var q = pathSegments.slice(1).join('/');
+          l.replace(
+            l.protocol + '//' + l.hostname + (l.port ? ':' + l.port : '') +
+            '/' + repo + '/?/' + q + (l.search ? '&' + l.search.slice(1).replace(/&/g, '~and~') : '') +
+            l.hash
+          );
+        }
+      }(window.location));
+    </script>
+  </head>
+  <body>
+  </body>
+</html>
+`;
+
   // Write index.html and 404.html (for SPA routing on GitHub Pages)
-  fs.writeFileSync(path.join(distDir, "index.html"), htmlContent, "utf-8");
-  fs.writeFileSync(path.join(distDir, "404.html"), htmlContent, "utf-8");
+  fs.writeFileSync(path.join(distDir, "index.html"), indexHtmlContent, "utf-8");
+  fs.writeFileSync(path.join(distDir, "404.html"), html404Content, "utf-8");
 
   console.log("GitHub Pages deployment folder 'dist' prepared successfully!");
 }
