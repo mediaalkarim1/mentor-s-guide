@@ -316,9 +316,13 @@ export function MutabaahForm() {
                       <SelectTrigger className="w-full bg-white border-[#D5E3DB] focus:border-[#0F8A6A] min-h-[40px] text-xs sm:text-sm">
                         <SelectValue placeholder={`Pilih capaian ${item.name}...`} />
                       </SelectTrigger>
-                      <SelectContent className="max-h-56 border-[#DCE9E1]">
-                        {opts.map((opt) => (
-                          <SelectItem key={opt.value} value={String(opt.value)} className="text-xs sm:text-sm py-2">
+                      <SelectContent className="max-h-60 border-[#DCE9E1]">
+                        {opts.map((opt, optIdx) => (
+                          <SelectItem
+                            key={`${opt.value}-${optIdx}`}
+                            value={String(opt.value)}
+                            className="text-xs sm:text-sm py-2 cursor-pointer"
+                          >
                             {opt.label} ({formatDisplayScore(opt.score)})
                           </SelectItem>
                         ))}
