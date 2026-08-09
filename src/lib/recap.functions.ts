@@ -47,6 +47,7 @@ export const getAdminDashboard = createServerFn({ method: "POST" })
   .inputValidator((data: unknown) => periodInput.parse(data ?? {}))
   .handler(async ({ data, context }) => {
     const { resolveAccount } = await import("./account.server");
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const email = (context.claims as { email?: string }).email ?? null;
     const account = await resolveAccount(context.userId, email);
     if (!account.isAdmin) throw new Error("Forbidden");
@@ -54,14 +55,15 @@ export const getAdminDashboard = createServerFn({ method: "POST" })
     const { listPeriods, resolvePeriod, buildMentorSummaries } = await import("./recap.server");
     const { averageScore, monthLabel } = await import("./mutabaah-config");
 
-    const periods = await listPeriods(context.supabase);
-    const period = await resolvePeriod(context.supabase, data.periodId);
+    const client = supabaseAdmin;
+    const periods = await listPeriods(client);
+    const period = await resolvePeriod(client, data.periodId);
     const monthIds = period
       ? periods.filter((p) => monthLabel(p.start_date) === monthLabel(period.start_date)).map((p) => p.id)
       : [];
 
-    const summaries = await buildMentorSummaries(context.supabase, period?.id ?? null, monthIds);
-    const { count: binaanCount } = await context.supabase
+    const summaries = await buildMentorSummaries(client, period?.id ?? null, monthIds);
+    const { count: binaanCount } = await client
       .from("binaan")
       .select("id", { count: "exact", head: true })
       .eq("status", "active");

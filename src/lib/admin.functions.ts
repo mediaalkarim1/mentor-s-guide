@@ -44,8 +44,13 @@ const periodSchema = z.object({
 export const getAdminData = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
+    const { resolveAccount } = await import("./account.server");
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { loadAdminData } = await import("./admin.server");
-    return loadAdminData(context.supabase);
+    const email = (context.claims as { email?: string }).email ?? null;
+    const account = await resolveAccount(context.userId, email);
+    if (!account.isAdmin) throw new Error("Forbidden");
+    return loadAdminData(supabaseAdmin);
   });
 
 export const saveMentor = createServerFn({ method: "POST" })
