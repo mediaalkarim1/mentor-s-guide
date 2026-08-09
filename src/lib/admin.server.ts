@@ -38,7 +38,7 @@ export async function upsertRow(supabase: DB, table: string, row: Record<string,
 
 export async function savePeriodRow(
   supabase: DB,
-  row: { id?: string; start_date: string; end_date: string; status: string },
+  row: { id?: string | undefined; start_date: string; end_date: string; status: string },
 ) {
   if (row.end_date < row.start_date) {
     return { ok: false, error: "Tanggal selesai harus setelah tanggal mulai." };
