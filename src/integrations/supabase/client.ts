@@ -42,7 +42,7 @@ function createSupabaseClient() {
     procEnv['VITE_SUPABASE_PUBLISHABLE_KEY'] ||
     metaEnv['SUPABASE_PUBLISHABLE_KEY'] ||
     procEnv['SUPABASE_PUBLISHABLE_KEY'] ||
-    'sb_publishable_Z1V67PzE6L34-N7L6J9X1Q';
+    'sb_publishable_ygKD2Pijsuxbh9K6kdmYjg_OC_3gykK';
 
   return createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
     global: {
