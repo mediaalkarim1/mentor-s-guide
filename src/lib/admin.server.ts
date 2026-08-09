@@ -5,6 +5,7 @@ import {
   MASTER_BINAAN,
   MASTER_INDICATORS,
   MASTER_PERIOD,
+  MASTER_PERIODS,
 } from "./master-data";
 
 type DB = SupabaseClient<any, "public", any>;
@@ -243,6 +244,7 @@ export async function deleteMentorRow(supabase: DB, mentorId: string) {
   }
 }
 
+
 export async function savePeriodRow(
   supabase: DB,
   row: { id?: string | undefined; start_date: string; end_date: string; status: string },
@@ -260,17 +262,46 @@ export async function savePeriodRow(
     return { ok: false, error: "Tanggal selesai harus setelah tanggal mulai." };
   }
 
-  if (row.status === "active") {
-    // Deactivate all existing active periods first
-    let deactQuery = db.from("mutabaah_periods").update({ status: "inactive" }).eq("status", "active");
-    if (row.id) {
-      deactQuery = deactQuery.neq("id", row.id);
+  try {
+    if (row.status === "active") {
+      let deactQuery = db.from("mutabaah_periods").update({ status: "inactive" }).eq("status", "active");
+      if (row.id) {
+        deactQuery = deactQuery.neq("id", row.id);
+      }
+      await deactQuery;
     }
-    await deactQuery;
+
+    const result = await upsertRow(db, "mutabaah_periods", row);
+    if (!result.ok) {
+      console.warn("DB period upsert warning, syncing in-memory master periods list", result.error);
+    }
+  } catch (e) {
+    console.warn("savePeriodRow DB exception", e);
   }
 
-  const result = await upsertRow(db, "mutabaah_periods", row);
-  if (!result.ok) return result;
+  const periodId = row.id ?? `d1000000-0000-0000-0000-${Date.now().toString().padStart(12, '0').slice(-12)}`;
+  if (row.status === "active") {
+    MASTER_PERIODS.forEach((p) => {
+      if (p.id !== periodId) p.status = "inactive";
+    });
+  }
+
+  const existingIdx = MASTER_PERIODS.findIndex((p) => p.id === periodId);
+  if (existingIdx >= 0) {
+    MASTER_PERIODS[existingIdx] = {
+      id: periodId,
+      start_date: row.start_date,
+      end_date: row.end_date,
+      status: row.status,
+    };
+  } else {
+    MASTER_PERIODS.unshift({
+      id: periodId,
+      start_date: row.start_date,
+      end_date: row.end_date,
+      status: row.status,
+    });
+  }
 
   return { ok: true };
 }

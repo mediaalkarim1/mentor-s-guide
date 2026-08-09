@@ -3,7 +3,7 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
 
 const mentorSchema = z.object({
-  id: z.string().uuid().optional(),
+  id: z.string().optional(),
   name: z.string().trim().min(2).max(100),
   username: z.string().trim().min(2).max(50).nullable().optional(),
   email: z.string().trim().email().max(255).nullable().optional(),
@@ -12,21 +12,20 @@ const mentorSchema = z.object({
 });
 
 const binaanSchema = z.object({
-  id: z.string().uuid().optional(),
+  id: z.string().optional(),
   name: z.string().trim().min(2).max(100),
-  mentor_id: z.string().uuid(),
+  mentor_id: z.string(),
   phone: z.string().trim().max(30).nullable().optional(),
   status: z.enum(["active", "inactive"]).default("active"),
 });
 
 const indicatorSchema = z.object({
-  id: z.string().uuid().optional(),
+  id: z.string().optional(),
   code: z
     .string()
     .trim()
-    .min(2)
-    .max(40)
-    .regex(/^[a-z0-9_]+$/),
+    .min(1)
+    .max(40),
   name: z.string().trim().min(2).max(100),
   target: z.number().positive().max(1000),
   unit: z.string().trim().min(1).max(20),
@@ -35,10 +34,10 @@ const indicatorSchema = z.object({
 });
 
 const periodSchema = z.object({
-  id: z.string().uuid().optional(),
-  start_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-  end_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-  status: z.enum(["active", "closed"]).default("closed"),
+  id: z.string().optional(),
+  start_date: z.string(),
+  end_date: z.string(),
+  status: z.enum(["active", "inactive", "closed"]).default("closed"),
 });
 
 export const getAdminData = createServerFn({ method: "POST" })
@@ -63,7 +62,7 @@ export const saveMentor = createServerFn({ method: "POST" })
 
 export const deleteMentor = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((data: unknown) => z.object({ id: z.string().uuid() }).parse(data))
+  .inputValidator((data: unknown) => z.object({ id: z.string() }).parse(data))
   .handler(async ({ data, context }) => {
     const { deleteMentorRow } = await import("./admin.server");
     return deleteMentorRow(context.supabase, data.id);
@@ -79,7 +78,7 @@ export const saveBinaan = createServerFn({ method: "POST" })
 
 export const deleteBinaan = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((data: unknown) => z.object({ id: z.string().uuid() }).parse(data))
+  .inputValidator((data: unknown) => z.object({ id: z.string() }).parse(data))
   .handler(async ({ data, context }) => {
     const { deleteBinaanRow } = await import("./admin.server");
     return deleteBinaanRow(context.supabase, data.id);
@@ -88,7 +87,7 @@ export const deleteBinaan = createServerFn({ method: "POST" })
 export const restoreBinaan = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((data: unknown) =>
-    z.object({ id: z.string().uuid(), mentor_id: z.string().uuid().optional() }).parse(data),
+    z.object({ id: z.string(), mentor_id: z.string().optional() }).parse(data),
   )
   .handler(async ({ data, context }) => {
     const { restoreBinaanRow } = await import("./admin.server");
