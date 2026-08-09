@@ -6,8 +6,12 @@ import { attachSupabaseAuth } from "@/integrations/supabase/auth-attacher";
 const errorMiddleware = createMiddleware().server(async ({ next }) => {
   try {
     return await next();
-  } catch (error) {
+  } catch (error: any) {
     if (error != null && typeof error === "object" && "statusCode" in error) {
+      throw error;
+    }
+    const msg = String(error?.message ?? "");
+    if (msg.includes("Unauthorized") || msg.includes("Forbidden") || msg.includes("Missing Supabase")) {
       throw error;
     }
     console.error(error);

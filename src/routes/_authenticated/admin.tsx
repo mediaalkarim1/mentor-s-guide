@@ -56,8 +56,25 @@ export const Route = createFileRoute("/_authenticated/admin")({
       { property: "og:description", content: "Kelola data master dan pantau seluruh mentor." },
     ],
   }),
+  errorComponent: AdminErrorFallback,
   component: AdminPage,
 });
+
+function AdminErrorFallback() {
+  return (
+    <div className="surface-card p-8 text-center space-y-4 max-w-md mx-auto my-12 border border-border rounded-xl">
+      <h2 className="text-lg font-bold">Akses Ditolak / Perlu Login</h2>
+      <p className="text-sm text-muted-foreground">
+        Halaman Panel Admin ini memerlukan sesi login Admin yang valid.
+      </p>
+      <div className="pt-2 flex justify-center gap-2">
+        <Link to="/login">
+          <Button variant="default">Ke Halaman Login</Button>
+        </Link>
+      </div>
+    </div>
+  );
+}
 
 function AdminPage() {
   const fetchDashboard = useServerFn(getAdminDashboard);
