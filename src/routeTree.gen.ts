@@ -13,6 +13,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as MutabaahRouteImport } from './routes/mutabaah'
+import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated/admin'
 import { Route as AuthenticatedBulananRouteImport } from './routes/_authenticated/bulanan'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedBinaanBinaanIdRouteImport } from './routes/_authenticated/binaan.$binaanId'
@@ -36,6 +37,11 @@ const MutabaahRoute = MutabaahRouteImport.update({
   path: '/mutabaah',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthenticatedAdminRoute = AuthenticatedAdminRouteImport.update({
+  id: '/admin',
+  path: '/admin',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedBulananRoute = AuthenticatedBulananRouteImport.update({
   id: '/bulanan',
   path: '/bulanan',
@@ -57,6 +63,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/mutabaah': typeof MutabaahRoute
+  '/admin': typeof AuthenticatedAdminRoute
   '/bulanan': typeof AuthenticatedBulananRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/binaan/$binaanId': typeof AuthenticatedBinaanBinaanIdRoute
@@ -65,6 +72,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/mutabaah': typeof MutabaahRoute
+  '/admin': typeof AuthenticatedAdminRoute
   '/bulanan': typeof AuthenticatedBulananRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/binaan/$binaanId': typeof AuthenticatedBinaanBinaanIdRoute
@@ -75,6 +83,7 @@ export interface FileRoutesById {
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/auth': typeof AuthRoute
   '/mutabaah': typeof MutabaahRoute
+  '/_authenticated/admin': typeof AuthenticatedAdminRoute
   '/_authenticated/bulanan': typeof AuthenticatedBulananRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/_authenticated/binaan/$binaanId': typeof AuthenticatedBinaanBinaanIdRoute
@@ -85,6 +94,7 @@ export interface FileRouteTypes {
     | '/'
     | '/auth'
     | '/mutabaah'
+    | '/admin'
     | '/bulanan'
     | '/dashboard'
     | '/binaan/$binaanId'
@@ -93,6 +103,7 @@ export interface FileRouteTypes {
     | '/'
     | '/auth'
     | '/mutabaah'
+    | '/admin'
     | '/bulanan'
     | '/dashboard'
     | '/binaan/$binaanId'
@@ -102,6 +113,7 @@ export interface FileRouteTypes {
     | '/_authenticated'
     | '/auth'
     | '/mutabaah'
+    | '/_authenticated/admin'
     | '/_authenticated/bulanan'
     | '/_authenticated/dashboard'
     | '/_authenticated/binaan/$binaanId'
@@ -144,6 +156,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof MutabaahRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_authenticated/admin': {
+      id: '/_authenticated/admin'
+      path: '/admin'
+      fullPath: '/admin'
+      preLoaderRoute: typeof AuthenticatedAdminRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/bulanan': {
       id: '/_authenticated/bulanan'
       path: '/bulanan'
@@ -169,12 +188,14 @@ declare module '@tanstack/react-router' {
 }
 
 interface AuthenticatedRouteRouteChildren {
+  AuthenticatedAdminRoute: typeof AuthenticatedAdminRoute
   AuthenticatedBulananRoute: typeof AuthenticatedBulananRoute
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
   AuthenticatedBinaanBinaanIdRoute: typeof AuthenticatedBinaanBinaanIdRoute
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
+  AuthenticatedAdminRoute: AuthenticatedAdminRoute,
   AuthenticatedBulananRoute: AuthenticatedBulananRoute,
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
   AuthenticatedBinaanBinaanIdRoute: AuthenticatedBinaanBinaanIdRoute,
