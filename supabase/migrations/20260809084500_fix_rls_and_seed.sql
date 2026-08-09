@@ -151,3 +151,23 @@ INSERT INTO public.binaan (name, mentor_id, status) SELECT 'Om Firly', 'a1000000
 INSERT INTO public.binaan (name, mentor_id, status) SELECT 'Om Bisri', 'a1000000-0000-0000-0000-000000000013', 'active' WHERE NOT EXISTS (SELECT 1 FROM public.binaan WHERE name = 'Om Bisri' AND mentor_id = 'a1000000-0000-0000-0000-000000000013');
 INSERT INTO public.binaan (name, mentor_id, status) SELECT 'Om Saehan', 'a1000000-0000-0000-0000-000000000013', 'active' WHERE NOT EXISTS (SELECT 1 FROM public.binaan WHERE name = 'Om Saehan' AND mentor_id = 'a1000000-0000-0000-0000-000000000013');
 INSERT INTO public.binaan (name, mentor_id, status) SELECT 'Om Deni', 'a1000000-0000-0000-0000-000000000013', 'active' WHERE NOT EXISTS (SELECT 1 FROM public.binaan WHERE name = 'Om Deni' AND mentor_id = 'a1000000-0000-0000-0000-000000000013');
+
+-- 5. Grant INSERT and SELECT on mutabaah_submissions and mutabaah_entries for public/anon & authenticated
+GRANT SELECT, INSERT ON public.mutabaah_submissions TO anon, authenticated;
+GRANT SELECT, INSERT ON public.mutabaah_entries TO anon, authenticated;
+
+DROP POLICY IF EXISTS "public insert submissions" ON public.mutabaah_submissions;
+CREATE POLICY "public insert submissions" ON public.mutabaah_submissions
+  FOR INSERT TO anon, authenticated WITH CHECK (true);
+
+DROP POLICY IF EXISTS "public select submissions" ON public.mutabaah_submissions;
+CREATE POLICY "public select submissions" ON public.mutabaah_submissions
+  FOR SELECT TO anon, authenticated USING (true);
+
+DROP POLICY IF EXISTS "public insert entries" ON public.mutabaah_entries;
+CREATE POLICY "public insert entries" ON public.mutabaah_entries
+  FOR INSERT TO anon, authenticated WITH CHECK (true);
+
+DROP POLICY IF EXISTS "public select entries" ON public.mutabaah_entries;
+CREATE POLICY "public select entries" ON public.mutabaah_entries
+  FOR SELECT TO anon, authenticated USING (true);

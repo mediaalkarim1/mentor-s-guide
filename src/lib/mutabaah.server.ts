@@ -1,6 +1,6 @@
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { scoreFor } from "./mutabaah-config";
-import { getMasterStore } from "./master_overrides.server";
+import { getMasterStore, updateMasterStore } from "./master_overrides.server";
 import {
   MASTER_MENTORS,
   MASTER_BINAAN,
@@ -58,18 +58,18 @@ export async function loadPublicFormData(): Promise<PublicFormData> {
   const period = activePeriodFromStore ?? periodRes?.data ?? MASTER_PERIOD;
 
   const mentorMap = new Map<string, any>();
-  store.mentors.forEach((m) => mentorMap.set(m.id, m));
-  (mentorRes?.data ?? []).forEach((m: any) => mentorMap.set(m.id, m));
+  store.mentors.forEach((m) => mentorMap.set((m.name || "").toLowerCase().trim(), m));
+  (mentorRes?.data ?? []).forEach((m: any) => mentorMap.set((m.name || "").toLowerCase().trim(), m));
   const mentors = Array.from(mentorMap.values()).length > 0 ? Array.from(mentorMap.values()) : MASTER_MENTORS;
 
   const binaanMap = new Map<string, any>();
-  store.binaan.forEach((b) => binaanMap.set(b.id, b));
-  (binaanRes?.data ?? []).forEach((b: any) => binaanMap.set(b.id, b));
+  store.binaan.forEach((b) => binaanMap.set(`${(b.name || "").toLowerCase().trim()}::${b.mentor_id}`, b));
+  (binaanRes?.data ?? []).forEach((b: any) => binaanMap.set(`${(b.name || "").toLowerCase().trim()}::${b.mentor_id}`, b));
   const binaan = Array.from(binaanMap.values()).length > 0 ? Array.from(binaanMap.values()) : MASTER_BINAAN;
 
   const indicatorMap = new Map<string, any>();
-  store.indicators.forEach((i) => indicatorMap.set(i.id, i));
-  (indicatorRes?.data ?? []).forEach((i: any) => indicatorMap.set(i.id, i));
+  store.indicators.forEach((i) => indicatorMap.set((i.code || "").toUpperCase().trim(), i));
+  (indicatorRes?.data ?? []).forEach((i: any) => indicatorMap.set((i.code || "").toUpperCase().trim(), i));
   const indicators = Array.from(indicatorMap.values()).length > 0 ? Array.from(indicatorMap.values()) : MASTER_INDICATORS;
 
   return {
@@ -184,6 +184,19 @@ export async function submitMutabaahRecord(payload: SubmitPayload): Promise<Subm
     Math.round(
       (scored.reduce((sum, s) => sum + s.achievement_percentage, 0) / scored.length) * 100,
     ) / 100;
+
+  // Double-lock persistence: save submission to server master store
+  updateMasterStore("submissions", "upsert", {
+    binaan_id: binaan.id,
+    binaanName: binaan.name,
+    mentor_id: mentor.id,
+    mentorName: mentor.name,
+    period_id: period.id,
+    total_score: totalScore,
+    status: "submitted",
+    submitted_at: new Date().toISOString(),
+    mutabaah_entries: scored,
+  });
 
   // Ensure mentor, binaan, and period records exist in DB before inserting mutabaah_submissions
   try {

@@ -110,23 +110,35 @@ export async function buildMentorRecap(
   const rawRows: RecapRow[] = [];
 
   if (period) {
-    const { data: submissions } = await supabase
+    const { data: dbSubmissions } = await supabase
       .from("mutabaah_submissions")
       .select("id, binaan_id, total_score, mutabaah_entries(indicator_id, achievement_percentage)")
       .eq("mentor_id", mentorId)
       .eq("period_id", period.id);
 
+    const storeSubmissions = (store.submissions ?? []).filter(
+      (s: any) => (s.mentor_id === mentorId || !s.mentor_id) && s.period_id === period.id,
+    );
+
     const subByBinaan = new Map();
-    (submissions ?? []).forEach((s: any) => {
-      subByBinaan.set(s.binaan_id, s);
+    storeSubmissions.forEach((s: any) => {
+      if (s.binaan_id) subByBinaan.set(s.binaan_id, s);
+      if (s.binaanName) subByBinaan.set(s.binaanName.toLowerCase().trim(), s);
+    });
+    (dbSubmissions ?? []).forEach((s: any) => {
+      if (s.binaan_id) subByBinaan.set(s.binaan_id, s);
     });
 
     for (const b of binaanList) {
-      const sub: any = subByBinaan.get(b.id);
+      const nameKey = (b.name || "").toLowerCase().trim();
+      const sub: any = subByBinaan.get(b.id) ?? subByBinaan.get(nameKey);
       const scores: Record<string, number> = {};
       if (sub) {
-        for (const e of sub.mutabaah_entries ?? []) {
-          scores[e.indicator_id] = Number(e.achievement_percentage);
+        if (sub.mutabaah_entries && Array.isArray(sub.mutabaah_entries)) {
+          for (const e of sub.mutabaah_entries) {
+            const indKey = e.indicator_id || e.indicatorId;
+            scores[indKey] = Number(e.achievement_percentage ?? e.score ?? 0);
+          }
         }
       }
       rawRows.push({
@@ -196,7 +208,7 @@ export async function buildMentorSummaries(
   const { data: binaanRes } = await supabase.from("binaan").select("id, mentor_id").eq("status", "active");
   const { data: subs } = await supabase
     .from("mutabaah_submissions")
-    .select("mentor_id, period_id, total_score");
+    .select("mentor_id, binaan_id, period_id, total_score");
 
   const store = getMasterStore();
   const mentorMap = new Map<string, any>();
@@ -217,16 +229,23 @@ export async function buildMentorSummaries(
   });
   const binaan = Array.from(binaanMap.values());
 
-  const submissions = subs ?? [];
+  const subMap = new Map<string, any>();
+  (store.submissions ?? []).forEach((s: any) => {
+    subMap.set(`${s.binaan_id || s.binaanName}::${s.period_id}`, s);
+  });
+  (subs ?? []).forEach((s: any) => {
+    subMap.set(`${s.binaan_id}::${s.period_id}`, s);
+  });
+  const submissions = Array.from(subMap.values());
 
   return mentors.map((m: any) => {
     const own = binaan.filter((b: any) => b.mentor_id === m.id);
     const weekSubs = submissions.filter(
-      (s: any) => s.mentor_id === m.id && periodId && s.period_id === periodId,
+      (s: any) => (s.mentor_id === m.id || s.mentorName === m.name) && periodId && s.period_id === periodId,
     );
     const weeklyByPeriod = monthPeriodIds
       .map((pid) => {
-        const rows = submissions.filter((s: any) => s.mentor_id === m.id && s.period_id === pid);
+        const rows = submissions.filter((s: any) => (s.mentor_id === m.id || s.mentorName === m.name) && s.period_id === pid);
         return rows.length ? averageScore(rows.map((r: any) => Number(r.total_score))) : null;
       })
       .filter((v): v is number => v !== null);
