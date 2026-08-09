@@ -37,23 +37,23 @@ function MonthlyPage() {
 
   if (isLoading || !data) {
     return (
-      <div className="flex items-center justify-center py-20 text-muted-foreground">
-        <Loader2 className="mr-2 h-5 w-5 animate-spin" /> Memuat rekap bulanan...
+      <div className="flex items-center justify-center py-20 text-[#52635C]">
+        <Loader2 className="mr-2 h-5 w-5 animate-spin text-[#006B54]" /> Memuat rekap bulanan...
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-wrap items-end justify-between gap-4">
+    <div className="space-y-5 md:space-y-6">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold">Rekap Bulanan</h1>
-          <p className="text-sm text-muted-foreground">
-            Nilai bulanan = rata-rata nilai pekanan yang memiliki data.
+          <h1 className="text-xl sm:text-2xl font-bold text-[#173C32]">Rekap Bulanan Mentor</h1>
+          <p className="text-xs sm:text-sm text-[#52635C] mt-0.5">
+            Nilai bulanan dihitung dari rata-rata nilai pekanan yang memiliki data.
           </p>
         </div>
         <Select value={data.month ?? ""} onValueChange={setMonth}>
-          <SelectTrigger className="w-48">
+          <SelectTrigger className="w-full sm:w-48 bg-white border-[#DCE9E1] h-10 text-xs">
             <SelectValue placeholder="Pilih bulan" />
           </SelectTrigger>
           <SelectContent>
@@ -66,49 +66,51 @@ function MonthlyPage() {
         </Select>
       </div>
 
-      <div className="surface-card overflow-x-auto">
-        <table className="w-full min-w-[40rem] text-sm">
-          <thead className="bg-secondary/60 text-left text-xs uppercase tracking-wide text-muted-foreground">
-            <tr>
-              <th className="px-4 py-3">Mentor</th>
-              {data.periods.map((p, i) => (
-                <th key={p.id} className="px-4 py-3 text-center">
-                  Pekan {i + 1}
-                  <span className="block text-[10px] font-normal normal-case">
-                    {formatPeriod(p.start_date, p.end_date)}
-                  </span>
-                </th>
-              ))}
-              <th className="px-4 py-3 text-center">Nilai Bulanan</th>
-              <th className="px-4 py-3">Status</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-border">
-            {data.rows.map((row) => (
-              <tr key={row.mentorId}>
-                <td className="px-4 py-3 font-medium">{row.mentorName}</td>
-                {row.weekly.map((v, i) => (
-                  <td key={i} className="px-4 py-3 text-center tabular-nums">
-                    {v === null ? "-" : formatDisplayScore(v)}
-                  </td>
-                ))}
-                <td className="px-4 py-3 text-center font-semibold tabular-nums">
-                  {formatDisplayScore(row.monthly)}
-                </td>
-                <td className="px-4 py-3">
-                  <ScoreBadge score={row.monthly} />
-                </td>
-              </tr>
-            ))}
-            {data.rows.length === 0 && (
+      <div className="surface-card overflow-hidden border border-[#DCE9E1] rounded-2xl bg-white">
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[38rem] text-sm">
+            <thead className="bg-[#EAF4EE] text-left text-xs uppercase tracking-wide text-[#245347]">
               <tr>
-                <td colSpan={data.periods.length + 3} className="px-4 py-8 text-center text-muted-foreground">
-                  Belum ada data.
-                </td>
+                <th className="px-4 py-3">Mentor</th>
+                {data.periods.map((p, i) => (
+                  <th key={p.id} className="px-4 py-3 text-center">
+                    Pekan {i + 1}
+                    <span className="block text-[10px] font-normal normal-case text-[#52635C]">
+                      {formatPeriod(p.start_date, p.end_date)}
+                    </span>
+                  </th>
+                ))}
+                <th className="px-4 py-3 text-center">Nilai Bulanan</th>
+                <th className="px-4 py-3">Status Predikat</th>
               </tr>
-            )}
-          </tbody>
-        </table>
+            </thead>
+            <tbody className="divide-y divide-[#DCE9E1]">
+              {data.rows.map((row) => (
+                <tr key={row.mentorId} className="hover:bg-[#F5FAF7] transition-colors">
+                  <td className="px-4 py-3 font-semibold text-[#173C32]">{row.mentorName}</td>
+                  {row.weekly.map((v, i) => (
+                    <td key={i} className="px-4 py-3 text-center tabular-nums text-xs text-[#52635C]">
+                      {v === null ? "-" : formatDisplayScore(v)}
+                    </td>
+                  ))}
+                  <td className="px-4 py-3 text-center font-bold tabular-nums text-[#006B54]">
+                    {formatDisplayScore(row.monthly)}
+                  </td>
+                  <td className="px-4 py-3">
+                    <ScoreBadge score={row.monthly} />
+                  </td>
+                </tr>
+              ))}
+              {data.rows.length === 0 && (
+                <tr>
+                  <td colSpan={data.periods.length + 3} className="px-4 py-8 text-center text-xs text-[#52635C]">
+                    Belum ada data rekap bulanan.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );

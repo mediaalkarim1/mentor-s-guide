@@ -2,7 +2,7 @@ import { useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { Loader2 } from "lucide-react";
+import { Loader2, Users, CheckCircle2, AlertCircle, Award } from "lucide-react";
 import { toast } from "sonner";
 
 import {
@@ -134,22 +134,22 @@ function AdminPage() {
 
   if (dashboard.isLoading || master.isLoading) {
     return (
-      <div className="flex items-center justify-center py-20 text-muted-foreground">
-        <Loader2 className="mr-2 h-5 w-5 animate-spin" /> Memuat data panel admin...
+      <div className="flex items-center justify-center py-20 text-[#52635C]">
+        <Loader2 className="mr-2 h-5 w-5 animate-spin text-[#006B54]" /> Memuat data panel admin...
       </div>
     );
   }
 
   if (dashboard.isError) {
     return (
-      <div className="surface-card p-8 text-center space-y-4 max-w-md mx-auto my-12 border border-border rounded-xl">
-        <h2 className="text-lg font-bold">Akses Ditolak / Perlu Login</h2>
-        <p className="text-sm text-muted-foreground">
+      <div className="surface-card p-6 sm:p-8 text-center space-y-4 max-w-md mx-auto my-12 border border-[#DCE9E1] rounded-2xl bg-white">
+        <h2 className="text-lg font-bold text-[#173C32]">Akses Ditolak / Perlu Login</h2>
+        <p className="text-xs sm:text-sm text-[#52635C]">
           Halaman Panel Admin ini memerlukan sesi login Admin yang valid.
         </p>
         <div className="pt-2 flex justify-center gap-2">
           <Link to="/login">
-            <Button variant="default">Ke Halaman Login</Button>
+            <Button className="bg-[#006B54] hover:bg-[#005844] text-white">Ke Halaman Login</Button>
           </Link>
         </div>
       </div>
@@ -159,68 +159,70 @@ function AdminPage() {
   const d = dashboard.data;
   if (!d) {
     return (
-      <div className="flex items-center justify-center py-20 text-muted-foreground">
+      <div className="flex items-center justify-center py-20 text-[#52635C]">
         <p className="text-sm">Menyiapkan data panel admin...</p>
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5 md:space-y-6">
       <div>
-        <h1 className="text-2xl font-bold">Panel Admin</h1>
-        <p className="text-sm text-muted-foreground">
+        <h1 className="text-xl sm:text-2xl font-bold text-[#173C32]">Panel Admin Master</h1>
+        <p className="text-xs sm:text-sm text-[#52635C] mt-0.5">
           {d.period
-            ? `Periode aktif ${formatPeriod(d.period.start_date, d.period.end_date)}`
+            ? `Periode aktif berjalan: ${formatPeriod(d.period.start_date, d.period.end_date)}`
             : "Belum ada periode aktif"}
         </p>
       </div>
 
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
-        <Stat label="Mentor" value={String(d.stats.mentors)} />
-        <Stat label="Binaan" value={String(d.stats.binaan)} />
-        <Stat label="Sudah Isi" value={String(d.stats.filled)} />
-        <Stat label="Belum Isi" value={String(d.stats.missing)} />
-        <Stat label="Rata-rata" value={formatDisplayScore(d.stats.average)} />
+      {/* Stat Cards Grid */}
+      <div className="grid grid-cols-2 gap-2.5 sm:gap-3 md:grid-cols-5">
+        <Stat label="Mentor" value={String(d.stats.mentors)} icon={<Users className="h-4 w-4 text-[#006B54]" />} />
+        <Stat label="Binaan" value={String(d.stats.binaan)} icon={<Users className="h-4 w-4 text-[#0F8A6A]" />} />
+        <Stat label="Sudah Isi" value={String(d.stats.filled)} icon={<CheckCircle2 className="h-4 w-4 text-[#087443]" />} badgeClass="bg-[#E5F6EC] text-[#087443]" />
+        <Stat label="Belum Isi" value={String(d.stats.missing)} icon={<AlertCircle className="h-4 w-4 text-[#B45309]" />} badgeClass="bg-[#FFF0E8] text-[#B45309]" />
+        <Stat label="Rata-rata" value={formatDisplayScore(d.stats.average)} icon={<Award className="h-4 w-4 text-[#006B54]" />} />
       </div>
 
-      <div className="surface-card overflow-x-auto">
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-4 py-3">
+      {/* Rekap Mentor Master Table */}
+      <div className="surface-card overflow-hidden border border-[#DCE9E1] rounded-2xl bg-white">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[#DCE9E1] bg-[#EAF4EE] px-4 py-3">
           <div>
-            <h2 className="text-base font-semibold">Rekap Mentor</h2>
-            <p className="text-xs text-muted-foreground">
+            <h2 className="text-sm sm:text-base font-bold text-[#173C32]">Rekapitulasi Mentor Master</h2>
+            <p className="text-xs text-[#52635C]">
               {selectedPeriodId && d.periods.find((p) => p.id === selectedPeriodId)
-                ? `Menampilkan Periode ${formatPeriod(
+                ? `Periode: ${formatPeriod(
                     d.periods.find((p) => p.id === selectedPeriodId)!.start_date,
                     d.periods.find((p) => p.id === selectedPeriodId)!.end_date,
                   )}`
-                : "Menampilkan Periode Aktif Berjalan"}
+                : "Periode Aktif Berjalan"}
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <div className="flex items-center rounded-md border border-border bg-secondary/30 p-0.5 text-xs">
+            <div className="flex items-center rounded-lg border border-[#DCE9E1] bg-white p-0.5 text-xs">
               <button
                 type="button"
-                className={`px-2.5 py-1 rounded font-medium transition-colors ${
-                  viewMode === "pekanan" ? "bg-background text-foreground shadow-xs" : "text-muted-foreground hover:text-foreground"
+                className={`px-2.5 py-1.5 rounded-md font-medium transition-colors ${
+                  viewMode === "pekanan" ? "bg-[#006B54] text-white font-semibold" : "text-[#52635C] hover:text-[#173C32]"
                 }`}
                 onClick={() => setViewMode("pekanan")}
               >
-                Rekap Pekanan
+                Pekanan
               </button>
               <button
                 type="button"
-                className={`px-2.5 py-1 rounded font-medium transition-colors ${
-                  viewMode === "bulanan" ? "bg-background text-foreground shadow-xs" : "text-muted-foreground hover:text-foreground"
+                className={`px-2.5 py-1.5 rounded-md font-medium transition-colors ${
+                  viewMode === "bulanan" ? "bg-[#006B54] text-white font-semibold" : "text-[#52635C] hover:text-[#173C32]"
                 }`}
                 onClick={() => setViewMode("bulanan")}
               >
-                Rekap Bulanan
+                Bulanan
               </button>
               <button
                 type="button"
-                className={`px-2.5 py-1 rounded font-medium transition-colors ${
-                  viewMode === "riwayat" ? "bg-background text-foreground shadow-xs" : "text-muted-foreground hover:text-foreground"
+                className={`px-2.5 py-1.5 rounded-md font-medium transition-colors ${
+                  viewMode === "riwayat" ? "bg-[#006B54] text-white font-semibold" : "text-[#52635C] hover:text-[#173C32]"
                 }`}
                 onClick={() => setViewMode("riwayat")}
               >
@@ -229,7 +231,7 @@ function AdminPage() {
             </div>
 
             <Select value={selectedPeriodId ?? d.period?.id ?? ""} onValueChange={(v) => setSelectedPeriodId(v)}>
-              <SelectTrigger className="w-56 h-8 text-xs">
+              <SelectTrigger className="w-full sm:w-48 h-9 text-xs bg-white border-[#DCE9E1]">
                 <SelectValue placeholder="Pilih Periode" />
               </SelectTrigger>
               <SelectContent>
@@ -244,141 +246,144 @@ function AdminPage() {
           </div>
         </div>
 
-        <table className="w-full min-w-[50rem] text-sm">
-          <thead className="bg-secondary/60 text-left text-xs uppercase tracking-wide text-muted-foreground">
-            <tr>
-              <th className="px-4 py-3">Mentor</th>
-              <th className="px-4 py-3 text-center">Binaan</th>
-              {viewMode === "pekanan" && (
-                <>
-                  <th className="px-4 py-3 text-center">Sudah</th>
-                  <th className="px-4 py-3 text-center">Belum</th>
-                  <th className="px-4 py-3 text-center">Pekanan</th>
-                  <th className="px-4 py-3 text-center">Bulanan</th>
-                </>
-              )}
-              {viewMode === "bulanan" && (
-                <>
-                  <th className="px-4 py-3 text-center">Rata-rata Bulanan</th>
-                </>
-              )}
-              {viewMode === "riwayat" && (
-                <>
-                  <th className="px-4 py-3 text-center">Nilai Pekan Ini</th>
-                  <th className="px-4 py-3 text-center">Rata-rata Bulanan</th>
-                </>
-              )}
-              <th className="px-4 py-3">Status</th>
-              <th className="px-4 py-3 text-center">Aksi</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-border">
-            {d.summaries.map((s) => (
-              <tr key={s.mentorId} className="hover:bg-secondary/40">
-                <td className="px-4 py-3 font-medium">
-                  <button
-                    type="button"
-                    onClick={() => setViewingMentorHistory({ mentorId: s.mentorId, mentorName: s.mentorName })}
-                    className="text-primary hover:underline font-semibold text-left cursor-pointer"
-                  >
-                    {s.mentorName}
-                  </button>
-                </td>
-                <td className="px-4 py-3 text-center tabular-nums">{s.binaanCount}</td>
-
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[50rem] text-sm">
+            <thead className="bg-[#EAF4EE]/60 text-left text-xs uppercase tracking-wide text-[#245347]">
+              <tr>
+                <th className="px-4 py-3">Mentor</th>
+                <th className="px-4 py-3 text-center">Binaan</th>
                 {viewMode === "pekanan" && (
                   <>
-                    <td className="px-4 py-3 text-center tabular-nums">{s.filled}</td>
-                    <td className="px-4 py-3 text-center tabular-nums">{s.missing}</td>
-                    <td className="px-4 py-3 text-center tabular-nums">
-                      <div className="font-semibold">{formatDisplayScore(s.weeklyScore)}</div>
-                      <div className="text-[10px] leading-none mt-0.5 font-normal">
-                        {s.isOverride ? (
-                          <span className="text-amber-600 font-medium dark:text-amber-400">Manual Admin</span>
-                        ) : (
-                          <span className="text-emerald-600 dark:text-emerald-400">Otomatis</span>
-                        )}
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 text-center tabular-nums">
-                      <div>{formatDisplayScore(s.monthlyScore)}</div>
-                      <div className="text-[10px] leading-none mt-0.5 font-normal">
-                        {s.isOverride ? (
-                          <span className="text-amber-600 font-medium dark:text-amber-400">Manual Admin</span>
-                        ) : (
-                          <span className="text-emerald-600 dark:text-emerald-400">Otomatis</span>
-                        )}
-                      </div>
-                    </td>
+                    <th className="px-4 py-3 text-center">Sudah</th>
+                    <th className="px-4 py-3 text-center">Belum</th>
+                    <th className="px-4 py-3 text-center">Pekanan</th>
+                    <th className="px-4 py-3 text-center">Bulanan</th>
                   </>
                 )}
-
                 {viewMode === "bulanan" && (
-                  <td className="px-4 py-3 text-center font-bold text-base tabular-nums">
-                    {formatDisplayScore(s.monthlyScore)}
-                  </td>
+                  <>
+                    <th className="px-4 py-3 text-center">Rata-rata Bulanan</th>
+                  </>
                 )}
-
                 {viewMode === "riwayat" && (
                   <>
-                    <td className="px-4 py-3 text-center font-semibold tabular-nums">{formatDisplayScore(s.weeklyScore)}</td>
-                    <td className="px-4 py-3 text-center font-semibold tabular-nums">{formatDisplayScore(s.monthlyScore)}</td>
+                    <th className="px-4 py-3 text-center">Nilai Pekan Ini</th>
+                    <th className="px-4 py-3 text-center">Rata-rata Bulanan</th>
                   </>
                 )}
-
-                <td className="px-4 py-3">
-                  <ScoreBadge score={s.weeklyScore} />
-                </td>
-                <td className="px-4 py-3 text-center space-x-1.5 whitespace-nowrap">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-7 px-2.5 text-xs font-medium"
-                    onClick={() => {
-                      setEditingRecap(s);
-                      setEditOverrideMode(s.isOverride ? "override" : "auto");
-                      setEditWeeklyScore(String(s.weeklyScore ?? 0));
-                      setEditMonthlyScore(String(s.monthlyScore ?? 0));
-                    }}
-                  >
-                    Edit
-                  </Button>
-                  <Button
-                    variant="destructive"
-                    size="sm"
-                    className="h-7 px-2.5 text-xs font-medium"
-                    onClick={() => {
-                      setResettingRecap(s);
-                      setResetScope("weekly");
-                    }}
-                  >
-                    Reset
-                  </Button>
-                </td>
+                <th className="px-4 py-3">Status</th>
+                <th className="px-4 py-3 text-center">Aksi</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody className="divide-y divide-[#DCE9E1] bg-white">
+              {d.summaries.map((s) => (
+                <tr key={s.mentorId} className="hover:bg-[#F5FAF7] transition-colors">
+                  <td className="px-4 py-3 font-semibold">
+                    <button
+                      type="button"
+                      onClick={() => setViewingMentorHistory({ mentorId: s.mentorId, mentorName: s.mentorName })}
+                      className="text-[#006B54] hover:underline text-left cursor-pointer font-bold"
+                    >
+                      {s.mentorName}
+                    </button>
+                  </td>
+                  <td className="px-4 py-3 text-center tabular-nums text-xs font-semibold text-[#173C32]">{s.binaanCount}</td>
+
+                  {viewMode === "pekanan" && (
+                    <>
+                      <td className="px-4 py-3 text-center tabular-nums text-xs font-semibold text-[#087443]">{s.filled}</td>
+                      <td className="px-4 py-3 text-center tabular-nums text-xs font-semibold text-[#B45309]">{s.missing}</td>
+                      <td className="px-4 py-3 text-center tabular-nums">
+                        <div className="font-bold text-[#006B54]">{formatDisplayScore(s.weeklyScore)}</div>
+                        <div className="text-[10px] leading-none mt-0.5 font-normal">
+                          {s.isOverride ? (
+                            <span className="text-amber-600 font-semibold">Manual</span>
+                          ) : (
+                            <span className="text-[#087443]">Otomatis</span>
+                          )}
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 text-center tabular-nums">
+                        <div className="font-bold text-[#0F8A6A]">{formatDisplayScore(s.monthlyScore)}</div>
+                        <div className="text-[10px] leading-none mt-0.5 font-normal">
+                          {s.isOverride ? (
+                            <span className="text-amber-600 font-semibold">Manual</span>
+                          ) : (
+                            <span className="text-[#087443]">Otomatis</span>
+                          )}
+                        </div>
+                      </td>
+                    </>
+                  )}
+
+                  {viewMode === "bulanan" && (
+                    <td className="px-4 py-3 text-center font-bold text-base tabular-nums text-[#006B54]">
+                      {formatDisplayScore(s.monthlyScore)}
+                    </td>
+                  )}
+
+                  {viewMode === "riwayat" && (
+                    <>
+                      <td className="px-4 py-3 text-center font-bold tabular-nums text-[#006B54]">{formatDisplayScore(s.weeklyScore)}</td>
+                      <td className="px-4 py-3 text-center font-bold tabular-nums text-[#0F8A6A]">{formatDisplayScore(s.monthlyScore)}</td>
+                    </>
+                  )}
+
+                  <td className="px-4 py-3">
+                    <ScoreBadge score={s.weeklyScore} />
+                  </td>
+                  <td className="px-4 py-3 text-center space-x-1.5 whitespace-nowrap">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-7 px-2.5 text-xs font-semibold border-[#CFE4D8] text-[#006B54] hover:bg-[#EAF4EE]"
+                      onClick={() => {
+                        setEditingRecap(s);
+                        setEditOverrideMode(s.isOverride ? "override" : "auto");
+                        setEditWeeklyScore(String(s.weeklyScore ?? 0));
+                        setEditMonthlyScore(String(s.monthlyScore ?? 0));
+                      }}
+                    >
+                      Edit
+                    </Button>
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      className="h-7 px-2.5 text-xs font-semibold bg-[#D92D20] hover:bg-[#B42318] text-white"
+                      onClick={() => {
+                        setResettingRecap(s);
+                        setResetScope("weekly");
+                      }}
+                    >
+                      Reset
+                    </Button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
 
-      <Tabs defaultValue="mentor">
-        <TabsList>
-          <TabsTrigger value="mentor">Mentor</TabsTrigger>
-          <TabsTrigger value="binaan">Binaan</TabsTrigger>
-          <TabsTrigger value="indikator">Indikator</TabsTrigger>
-          <TabsTrigger value="periode">Periode</TabsTrigger>
+      {/* Tabs Management Section */}
+      <Tabs defaultValue="mentor" className="space-y-4">
+        <TabsList className="bg-[#EAF4EE] p-1 rounded-xl flex flex-wrap h-auto gap-1">
+          <TabsTrigger value="mentor" className="text-xs sm:text-sm font-semibold rounded-lg data-[state=active]:bg-[#006B54] data-[state=active]:text-white">Mentor</TabsTrigger>
+          <TabsTrigger value="binaan" className="text-xs sm:text-sm font-semibold rounded-lg data-[state=active]:bg-[#006B54] data-[state=active]:text-white">Binaan</TabsTrigger>
+          <TabsTrigger value="indikator" className="text-xs sm:text-sm font-semibold rounded-lg data-[state=active]:bg-[#006B54] data-[state=active]:text-white">Indikator</TabsTrigger>
+          <TabsTrigger value="periode" className="text-xs sm:text-sm font-semibold rounded-lg data-[state=active]:bg-[#006B54] data-[state=active]:text-white">Periode</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="mentor" className="pt-4">
+        <TabsContent value="mentor" className="pt-2">
           <MentorSection rows={master.data?.mentors ?? []} binaan={master.data?.binaan ?? []} />
         </TabsContent>
-        <TabsContent value="binaan" className="pt-4">
+        <TabsContent value="binaan" className="pt-2">
           <BinaanSection rows={master.data?.binaan ?? []} mentors={master.data?.mentors ?? []} />
         </TabsContent>
-        <TabsContent value="indikator" className="pt-4">
+        <TabsContent value="indikator" className="pt-2">
           <IndicatorSection rows={master.data?.indicators ?? []} />
         </TabsContent>
-        <TabsContent value="periode" className="pt-4">
+        <TabsContent value="periode" className="pt-2">
           <PeriodSection rows={master.data?.periods ?? []} />
         </TabsContent>
       </Tabs>
@@ -388,19 +393,19 @@ function AdminPage() {
         open={viewingMentorHistory !== null}
         onOpenChange={(open) => !open && setViewingMentorHistory(null)}
       >
-        <DialogContent className="sm:max-w-[32rem]">
+        <DialogContent className="w-[92vw] sm:max-w-[32rem] max-h-[85vh] overflow-y-auto border border-[#DCE9E1] rounded-2xl bg-white">
           <DialogHeader>
-            <DialogTitle>RIWAYAT MUTABAAH: {viewingMentorHistory?.mentorName}</DialogTitle>
+            <DialogTitle className="text-base sm:text-lg font-bold text-[#173C32]">RIWAYAT MUTABAAH: {viewingMentorHistory?.mentorName}</DialogTitle>
           </DialogHeader>
           <div className="py-2 space-y-3">
             {historyQuery.isLoading ? (
-              <div className="flex items-center justify-center py-8 text-xs text-muted-foreground">
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Memuat riwayat periode...
+              <div className="flex items-center justify-center py-8 text-xs text-[#52635C]">
+                <Loader2 className="mr-2 h-4 w-4 animate-spin text-[#006B54]" /> Memuat riwayat periode...
               </div>
             ) : (
-              <div className="overflow-x-auto border border-border rounded-md">
+              <div className="overflow-x-auto border border-[#DCE9E1] rounded-xl">
                 <table className="w-full text-left text-sm">
-                  <thead className="border-b border-border bg-secondary/40 text-xs font-semibold uppercase text-muted-foreground">
+                  <thead className="border-b border-[#DCE9E1] bg-[#EAF4EE] text-xs font-semibold uppercase text-[#245347]">
                     <tr>
                       <th className="px-3 py-2">Periode</th>
                       <th className="px-3 py-2 text-center">Status Periode</th>
@@ -408,10 +413,10 @@ function AdminPage() {
                       <th className="px-3 py-2">Predikat</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-border text-xs">
+                  <tbody className="divide-y divide-[#DCE9E1] text-xs">
                     {(historyQuery.data?.history ?? []).map((h) => (
-                      <tr key={h.periodId} className="hover:bg-secondary/20">
-                        <td className="px-3 py-2 font-medium">
+                      <tr key={h.periodId} className="hover:bg-[#F5FAF7]">
+                        <td className="px-3 py-2 font-medium text-[#173C32]">
                           {formatPeriod(h.startDate, h.endDate)}
                         </td>
                         <td className="px-3 py-2 text-center">
@@ -432,11 +437,11 @@ function AdminPage() {
                               : "Nonaktif"}
                           </Badge>
                         </td>
-                        <td className="px-3 py-2 text-center tabular-nums font-semibold">
+                        <td className="px-3 py-2 text-center tabular-nums font-bold text-[#006B54]">
                           <div>{formatDisplayScore(h.score)}</div>
                           {h.isOverride && (
-                            <div className="text-[9px] text-amber-600 dark:text-amber-400 font-normal">
-                              Manual Admin
+                            <div className="text-[9px] text-amber-600 font-normal">
+                              Manual
                             </div>
                           )}
                         </td>
@@ -447,7 +452,7 @@ function AdminPage() {
                     ))}
                     {(historyQuery.data?.history ?? []).length === 0 && (
                       <tr>
-                        <td colSpan={4} className="px-3 py-6 text-center text-muted-foreground text-xs">
+                        <td colSpan={4} className="px-3 py-6 text-center text-[#52635C] text-xs">
                           Belum ada riwayat periode.
                         </td>
                       </tr>
@@ -458,7 +463,7 @@ function AdminPage() {
             )}
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setViewingMentorHistory(null)}>
+            <Button variant="outline" onClick={() => setViewingMentorHistory(null)} className="w-full sm:w-auto border-[#DCE9E1]">
               Tutup
             </Button>
           </DialogFooter>
@@ -467,9 +472,9 @@ function AdminPage() {
 
       {/* Edit Rekap Mentor Dialog */}
       <Dialog open={editingRecap !== null} onOpenChange={(open) => !open && setEditingRecap(null)}>
-        <DialogContent className="sm:max-w-[28rem]">
+        <DialogContent className="w-[92vw] sm:max-w-[28rem] max-h-[85vh] overflow-y-auto border border-[#DCE9E1] rounded-2xl bg-white">
           <DialogHeader>
-            <DialogTitle>EDIT REKAP MENTOR</DialogTitle>
+            <DialogTitle className="text-base sm:text-lg font-bold text-[#173C32]">EDIT REKAP MENTOR</DialogTitle>
           </DialogHeader>
           {editingRecap && (
             <form
@@ -486,17 +491,17 @@ function AdminPage() {
                 });
               }}
             >
-              <div className="grid grid-cols-2 gap-2 text-xs surface-card p-3 rounded-md border border-border">
-                <div><span className="text-muted-foreground">Mentor:</span> <span className="font-semibold">{editingRecap.mentorName}</span></div>
-                <div><span className="text-muted-foreground">Binaan:</span> <span className="font-semibold">{editingRecap.binaanCount}</span></div>
-                <div><span className="text-muted-foreground">Sudah:</span> <span className="font-semibold">{editingRecap.filled}</span></div>
-                <div><span className="text-muted-foreground">Belum:</span> <span className="font-semibold">{editingRecap.missing}</span></div>
+              <div className="grid grid-cols-2 gap-2 text-xs bg-[#F5FAF7] p-3 rounded-xl border border-[#DCE9E1]">
+                <div><span className="text-[#52635C]">Mentor:</span> <span className="font-semibold text-[#173C32]">{editingRecap.mentorName}</span></div>
+                <div><span className="text-[#52635C]">Binaan:</span> <span className="font-semibold text-[#173C32]">{editingRecap.binaanCount}</span></div>
+                <div><span className="text-[#52635C]">Sudah:</span> <span className="font-semibold text-[#087443]">{editingRecap.filled}</span></div>
+                <div><span className="text-[#52635C]">Belum:</span> <span className="font-semibold text-[#B45309]">{editingRecap.missing}</span></div>
               </div>
 
               <div className="space-y-2">
-                <Label className="text-xs font-semibold">Mode Penilaian Rekap</Label>
+                <Label className="text-xs font-semibold text-[#173C32]">Mode Penilaian Rekap</Label>
                 <div className="space-y-2 text-xs">
-                  <label className="flex items-center gap-2 cursor-pointer p-2 border border-border rounded-md hover:bg-secondary/40">
+                  <label className="flex items-center gap-2.5 cursor-pointer p-2.5 border border-[#DCE9E1] rounded-xl hover:bg-[#F5FAF7]">
                     <input
                       type="radio"
                       name="overrideMode"
@@ -505,11 +510,11 @@ function AdminPage() {
                       onChange={() => setEditOverrideMode("auto")}
                     />
                     <div>
-                      <p className="font-medium">Gunakan Hasil Otomatis</p>
-                      <p className="text-[11px] text-muted-foreground">Perhitungan nilai dihitung otomatis dari submission data Mutabaah.</p>
+                      <p className="font-semibold text-[#173C32]">Gunakan Hasil Otomatis</p>
+                      <p className="text-[11px] text-[#52635C]">Perhitungan nilai dihitung otomatis dari submission data Mutabaah.</p>
                     </div>
                   </label>
-                  <label className="flex items-center gap-2 cursor-pointer p-2 border border-border rounded-md hover:bg-secondary/40">
+                  <label className="flex items-center gap-2.5 cursor-pointer p-2.5 border border-[#DCE9E1] rounded-xl hover:bg-[#F5FAF7]">
                     <input
                       type="radio"
                       name="overrideMode"
@@ -518,17 +523,17 @@ function AdminPage() {
                       onChange={() => setEditOverrideMode("override")}
                     />
                     <div>
-                      <p className="font-medium">Override oleh Admin</p>
-                      <p className="text-[11px] text-muted-foreground">Nilai rekap ditentukan secara manual oleh Admin.</p>
+                      <p className="font-semibold text-[#173C32]">Override oleh Admin</p>
+                      <p className="text-[11px] text-[#52635C]">Nilai rekap ditentukan secara manual oleh Admin.</p>
                     </div>
                   </label>
                 </div>
               </div>
 
               {editOverrideMode === "override" && (
-                <div className="space-y-3 pt-2 border-t border-border">
+                <div className="space-y-3 pt-2 border-t border-[#DCE9E1]">
                   <div className="space-y-1">
-                    <Label htmlFor="manual-weekly">Nilai Pekanan Manual (0-100)</Label>
+                    <Label htmlFor="manual-weekly" className="text-xs font-semibold text-[#173C32]">Nilai Pekanan Manual (0-100)</Label>
                     <Input
                       id="manual-weekly"
                       type="number"
@@ -537,10 +542,11 @@ function AdminPage() {
                       step={0.01}
                       value={editWeeklyScore}
                       onChange={(e) => setEditWeeklyScore(e.target.value)}
+                      className="min-h-[44px] bg-white border-[#D5E3DB]"
                     />
                   </div>
                   <div className="space-y-1">
-                    <Label htmlFor="manual-monthly">Nilai Bulanan Manual (0-100)</Label>
+                    <Label htmlFor="manual-monthly" className="text-xs font-semibold text-[#173C32]">Nilai Bulanan Manual (0-100)</Label>
                     <Input
                       id="manual-monthly"
                       type="number"
@@ -549,16 +555,17 @@ function AdminPage() {
                       step={0.01}
                       value={editMonthlyScore}
                       onChange={(e) => setEditMonthlyScore(e.target.value)}
+                      className="min-h-[44px] bg-white border-[#D5E3DB]"
                     />
                   </div>
                 </div>
               )}
 
-              <DialogFooter className="pt-2">
-                <Button type="button" variant="outline" onClick={() => setEditingRecap(null)}>
+              <DialogFooter className="pt-2 flex-col sm:flex-row gap-2">
+                <Button type="button" variant="outline" onClick={() => setEditingRecap(null)} className="w-full sm:w-auto border-[#DCE9E1]">
                   Batal
                 </Button>
-                <Button type="submit" disabled={saveOverrideMut.isPending}>
+                <Button type="submit" disabled={saveOverrideMut.isPending} className="w-full sm:w-auto bg-[#006B54] hover:bg-[#005844] text-white">
                   {saveOverrideMut.isPending && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />}
                   Simpan Perubahan
                 </Button>
@@ -570,21 +577,21 @@ function AdminPage() {
 
       {/* Reset Rekap Mentor Dialog */}
       <Dialog open={resettingRecap !== null} onOpenChange={(open) => !open && setResettingRecap(null)}>
-        <DialogContent className="sm:max-w-[28rem]">
+        <DialogContent className="w-[92vw] sm:max-w-[28rem] max-h-[85vh] overflow-y-auto border border-[#DCE9E1] rounded-2xl bg-white">
           <DialogHeader>
-            <DialogTitle className="text-destructive font-bold">RESET REKAP MENTOR</DialogTitle>
+            <DialogTitle className="text-base sm:text-lg font-bold text-destructive">RESET REKAP MENTOR</DialogTitle>
           </DialogHeader>
           {resettingRecap && (
             <div className="space-y-4 py-2 text-sm">
-              <div className="surface-card p-3 rounded-md border border-border text-xs space-y-1">
-                <p><span className="text-muted-foreground">Mentor:</span> <span className="font-semibold">{resettingRecap.mentorName}</span></p>
-                <p><span className="text-muted-foreground">Binaan Terhubung:</span> <span className="font-semibold">{resettingRecap.binaanCount} orang</span></p>
+              <div className="bg-[#F5FAF7] p-3 rounded-xl border border-[#DCE9E1] text-xs space-y-1">
+                <p><span className="text-[#52635C]">Mentor:</span> <span className="font-semibold text-[#173C32]">{resettingRecap.mentorName}</span></p>
+                <p><span className="text-[#52635C]">Binaan Terhubung:</span> <span className="font-semibold text-[#173C32]">{resettingRecap.binaanCount} orang</span></p>
               </div>
 
               <div className="space-y-2">
-                <Label className="text-xs font-semibold">Pilih Periode Reset</Label>
+                <Label className="text-xs font-semibold text-[#173C32]">Pilih Scope Reset</Label>
                 <div className="space-y-2 text-xs">
-                  <label className="flex items-center gap-2 cursor-pointer p-2 border border-border rounded-md hover:bg-secondary/40">
+                  <label className="flex items-center gap-2.5 cursor-pointer p-2.5 border border-[#DCE9E1] rounded-xl hover:bg-[#F5FAF7]">
                     <input
                       type="radio"
                       name="resetScope"
@@ -593,11 +600,11 @@ function AdminPage() {
                       onChange={() => setResetScope("weekly")}
                     />
                     <div>
-                      <p className="font-medium">Reset Mingguan (Pekan Terpilih)</p>
-                      <p className="text-[11px] text-muted-foreground">Mengembalikan nilai pekanan ke otomatis / 0 untuk pekan terpilih saja.</p>
+                      <p className="font-semibold text-[#173C32]">Reset Mingguan (Pekan Terpilih)</p>
+                      <p className="text-[11px] text-[#52635C]">Mengembalikan nilai pekanan ke otomatis / 0 untuk pekan terpilih saja.</p>
                     </div>
                   </label>
-                  <label className="flex items-center gap-2 cursor-pointer p-2 border border-border rounded-md hover:bg-secondary/40">
+                  <label className="flex items-center gap-2.5 cursor-pointer p-2.5 border border-[#DCE9E1] rounded-xl hover:bg-[#F5FAF7]">
                     <input
                       type="radio"
                       name="resetScope"
@@ -606,11 +613,11 @@ function AdminPage() {
                       onChange={() => setResetScope("monthly")}
                     />
                     <div>
-                      <p className="font-medium">Reset Bulanan (Bulan Ini)</p>
-                      <p className="text-[11px] text-muted-foreground">Mereset rekap mutabaah bulan berjalan untuk mentor ini.</p>
+                      <p className="font-semibold text-[#173C32]">Reset Bulanan (Bulan Ini)</p>
+                      <p className="text-[11px] text-[#52635C]">Mereset rekap mutabaah bulan berjalan untuk mentor ini.</p>
                     </div>
                   </label>
-                  <label className="flex items-center gap-2 cursor-pointer p-2 border border-border rounded-md hover:bg-secondary/40">
+                  <label className="flex items-center gap-2.5 cursor-pointer p-2.5 border border-[#DCE9E1] rounded-xl hover:bg-[#F5FAF7]">
                     <input
                       type="radio"
                       name="resetScope"
@@ -619,24 +626,25 @@ function AdminPage() {
                       onChange={() => setResetScope("all")}
                     />
                     <div>
-                      <p className="font-medium text-destructive">Reset Semua Rekap</p>
-                      <p className="text-[11px] text-muted-foreground">Mereset seluruh data rekap mutabaah mentor & binaannya.</p>
+                      <p className="font-semibold text-destructive">Reset Semua Rekap</p>
+                      <p className="text-[11px] text-[#52635C]">Mereset seluruh data rekap mutabaah mentor & binaannya.</p>
                     </div>
                   </label>
                 </div>
               </div>
 
-              <div className="p-3 bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-200 rounded-md text-xs space-y-1 border border-amber-200 dark:border-amber-800">
+              <div className="p-3 bg-[#E5F6EC] text-[#087443] rounded-xl text-xs space-y-1 border border-[#B7E8CB]">
                 <p className="font-semibold">✓ Yang TIDAK akan terhapus:</p>
                 <p className="text-[11px]">Akun Mentor, Data Binaan, Mapping Mentor-Binaan, dan Riwayat Identitas tetap 100% aman.</p>
               </div>
 
-              <DialogFooter className="pt-2">
-                <Button variant="outline" onClick={() => setResettingRecap(null)}>
+              <DialogFooter className="pt-2 flex-col sm:flex-row gap-2">
+                <Button variant="outline" onClick={() => setResettingRecap(null)} className="w-full sm:w-auto border-[#DCE9E1]">
                   Batal
                 </Button>
                 <Button
                   variant="destructive"
+                  className="w-full sm:w-auto bg-[#D92D20] hover:bg-[#B42318] text-white"
                   onClick={() => {
                     if (resetScope === "all") {
                       setConfirmingResetAll(true);
@@ -661,20 +669,20 @@ function AdminPage() {
 
       {/* Double Confirmation AlertDialog for Reset All */}
       <AlertDialog open={confirmingResetAll} onOpenChange={setConfirmingResetAll}>
-        <AlertDialogContent>
+        <AlertDialogContent className="w-[92vw] sm:max-w-[28rem] border border-[#DCE9E1] rounded-2xl bg-white">
           <AlertDialogHeader>
-            <AlertDialogTitle className="text-destructive font-bold">PERINGATAN KERAS — CONFIRM RESET ALL</AlertDialogTitle>
-            <AlertDialogDescription>
+            <AlertDialogTitle className="text-destructive font-bold text-base sm:text-lg">PERINGATAN KERAS — CONFIRM RESET ALL</AlertDialogTitle>
+            <AlertDialogDescription className="text-xs sm:text-sm text-[#52635C]">
               Apakah Anda benar-benar yakin ingin mereset seluruh rekap data Mutabaah untuk Mentor{" "}
-              <strong className="text-foreground">{resettingRecap?.mentorName}</strong> ({resettingRecap?.binaanCount} Binaan)?
+              <strong className="text-[#173C32]">{resettingRecap?.mentorName}</strong> ({resettingRecap?.binaanCount} Binaan)?
               <br /><br />
               Seluruh data rekap mutabaah akan dibersihkan, tetapi akun Mentor dan daftar Binaan TIDAK AKAN terhapus.
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Batal</AlertDialogCancel>
+          <AlertDialogFooter className="flex-col sm:flex-row gap-2">
+            <AlertDialogCancel className="w-full sm:w-auto border-[#DCE9E1]">Batal</AlertDialogCancel>
             <AlertDialogAction
-              className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
+              className="w-full sm:w-auto bg-[#D92D20] hover:bg-[#B42318] text-white font-semibold"
               onClick={() => {
                 if (!resettingRecap) return;
                 resetRecapMut.mutate({
@@ -693,11 +701,14 @@ function AdminPage() {
   );
 }
 
-function Stat({ label, value }: { label: string; value: string }) {
+function Stat({ label, value, icon, badgeClass }: { label: string; value: string; icon?: React.ReactNode; badgeClass?: string }) {
   return (
-    <div className="surface-card p-4">
-      <p className="text-xs text-muted-foreground">{label}</p>
-      <p className="mt-1 text-2xl font-bold tabular-nums">{value}</p>
+    <div className="surface-card p-3.5 sm:p-4 border border-[#DCE9E1] rounded-2xl bg-white shadow-xs">
+      <div className="flex items-center justify-between">
+        <p className="text-[11px] sm:text-xs font-semibold text-[#52635C] uppercase tracking-wider">{label}</p>
+        {icon && <div className={`p-1.5 rounded-lg ${badgeClass ?? "bg-[#EAF4EE]"}`}>{icon}</div>}
+      </div>
+      <p className="mt-1.5 text-xl sm:text-2xl font-bold tabular-nums text-[#173C32]">{value}</p>
     </div>
   );
 }
@@ -721,8 +732,8 @@ function useSaver(fn: any, keys: string[]) {
 
 function Panel({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="surface-card p-4 space-y-4">
-      <h2 className="text-base font-semibold">{title}</h2>
+    <div className="surface-card p-4 sm:p-5 space-y-4 border border-[#DCE9E1] rounded-2xl bg-white">
+      <h2 className="text-sm sm:text-base font-bold text-[#173C32]">{title}</h2>
       {children}
     </div>
   );
@@ -777,10 +788,10 @@ function MentorSection({ rows, binaan }: { rows: any[]; binaan: any[] }) {
 
   return (
     <div className="space-y-4">
-      <div className="grid gap-4 md:grid-cols-[20rem_1fr]">
-        <Panel title="Tambah Mentor">
+      <div className="grid gap-4 grid-cols-1 md:grid-cols-[20rem_1fr]">
+        <Panel title="Tambah Mentor Master">
           <form
-            className="space-y-3"
+            className="space-y-3 text-xs sm:text-sm"
             onSubmit={(e) => {
               e.preventDefault();
               save.mutate({
@@ -797,7 +808,7 @@ function MentorSection({ rows, binaan }: { rows: any[]; binaan: any[] }) {
             }}
           >
             <div className="space-y-1.5">
-              <Label htmlFor="m-name">Nama Mentor</Label>
+              <Label htmlFor="m-name" className="text-xs font-semibold text-[#173C32]">Nama Mentor</Label>
               <Input
                 id="m-name"
                 required
@@ -805,20 +816,22 @@ function MentorSection({ rows, binaan }: { rows: any[]; binaan: any[] }) {
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="contoh: Abi Azam"
+                className="min-h-[44px] bg-white border-[#D5E3DB]"
               />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="m-username">Username (login mentor)</Label>
+              <Label htmlFor="m-username" className="text-xs font-semibold text-[#173C32]">Username (login mentor)</Label>
               <Input
                 id="m-username"
                 maxLength={50}
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 placeholder="contoh: abi_azam"
+                className="min-h-[44px] bg-white border-[#D5E3DB]"
               />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="m-email">Email (opsional)</Label>
+              <Label htmlFor="m-email" className="text-xs font-semibold text-[#173C32]">Email (opsional)</Label>
               <Input
                 id="m-email"
                 type="email"
@@ -826,10 +839,11 @@ function MentorSection({ rows, binaan }: { rows: any[]; binaan: any[] }) {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="contoh: azam@mutabaah.sch.id"
+                className="min-h-[44px] bg-white border-[#D5E3DB]"
               />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="m-password">Password Baru</Label>
+              <Label htmlFor="m-password" className="text-xs font-semibold text-[#173C32]">Password Baru</Label>
               <Input
                 id="m-password"
                 type="password"
@@ -837,9 +851,10 @@ function MentorSection({ rows, binaan }: { rows: any[]; binaan: any[] }) {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="Password login mentor"
+                className="min-h-[44px] bg-white border-[#D5E3DB]"
               />
             </div>
-            <Button type="submit" disabled={save.isPending} className="w-full">
+            <Button type="submit" disabled={save.isPending} className="w-full bg-[#006B54] hover:bg-[#005844] text-white font-semibold h-11">
               {save.isPending && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />}
               Simpan Mentor
             </Button>
@@ -848,40 +863,40 @@ function MentorSection({ rows, binaan }: { rows: any[]; binaan: any[] }) {
 
         <Panel title="Daftar Mentor Master">
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm">
-              <thead className="border-b border-border bg-secondary/40 text-xs font-semibold uppercase text-muted-foreground">
+            <table className="w-full text-left text-sm min-w-[28rem]">
+              <thead className="border-b border-[#DCE9E1] bg-[#EAF4EE] text-xs font-semibold uppercase text-[#245347]">
                 <tr>
                   <th className="px-3 py-2 text-right w-12">No</th>
-                  <th className="px-3 py-2">Nama</th>
+                  <th className="px-3 py-2">Nama Mentor</th>
                   <th className="px-3 py-2">Username</th>
                   <th className="px-3 py-2">Binaan</th>
                   <th className="px-3 py-2">Status</th>
                   <th className="px-3 py-2 text-right">Aksi</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-border">
+              <tbody className="divide-y divide-[#DCE9E1]">
                 {rows.map((m, i) => {
                   const count = binaan.filter((b) => b.mentor_id === m.id).length;
                   return (
-                    <tr key={m.id} className="hover:bg-secondary/20">
-                      <td className="px-3 py-2 text-right tabular-nums text-muted-foreground text-xs">
+                    <tr key={m.id} className="hover:bg-[#F5FAF7]">
+                      <td className="px-3 py-2 text-right tabular-nums text-[#52635C] text-xs">
                         {i + 1}
                       </td>
-                      <td className="px-3 py-2 font-medium">{m.name}</td>
-                      <td className="px-3 py-2 text-xs text-muted-foreground">
+                      <td className="px-3 py-2 font-semibold text-[#173C32]">{m.name}</td>
+                      <td className="px-3 py-2 text-xs text-[#52635C]">
                         {m.username ?? (m.email ? m.email.split("@")[0] : "-")}
                       </td>
                       <td className="px-3 py-2 tabular-nums">
                         <button
                           type="button"
                           onClick={() => setViewingMentor(m)}
-                          className="inline-flex items-center gap-1 font-semibold text-primary hover:underline cursor-pointer"
+                          className="inline-flex items-center gap-1 font-bold text-[#006B54] hover:underline cursor-pointer"
                         >
                           <span>{count} orang</span>
                         </button>
                       </td>
                       <td className="px-3 py-2">
-                        <Badge variant={m.status === "active" ? "default" : "secondary"} className="text-xs">
+                        <Badge variant={m.status === "active" ? "default" : "secondary"} className="text-xs bg-[#E5F6EC] text-[#087443] border-[#B7E8CB]">
                           {m.status === "active" ? "Aktif" : "Nonaktif"}
                         </Badge>
                       </td>
@@ -889,7 +904,7 @@ function MentorSection({ rows, binaan }: { rows: any[]; binaan: any[] }) {
                         <Button
                           variant="ghost"
                           size="sm"
-                          className="h-7 px-2 text-xs"
+                          className="h-7 px-2 text-xs font-semibold text-[#006B54]"
                           onClick={() => openEditModal(m)}
                         >
                           Edit
@@ -897,7 +912,7 @@ function MentorSection({ rows, binaan }: { rows: any[]; binaan: any[] }) {
                         <Button
                           variant="ghost"
                           size="sm"
-                          className="h-7 px-2 text-xs text-destructive hover:text-destructive"
+                          className="h-7 px-2 text-xs font-semibold text-destructive hover:text-destructive"
                           onClick={() => setDeletingMentor(m)}
                         >
                           Hapus
@@ -914,31 +929,31 @@ function MentorSection({ rows, binaan }: { rows: any[]; binaan: any[] }) {
 
       {/* Viewing Mentor Detail Dialog */}
       <Dialog open={viewingMentor !== null} onOpenChange={(open) => !open && setViewingMentor(null)}>
-        <DialogContent className="sm:max-w-[28rem]">
+        <DialogContent className="w-[92vw] sm:max-w-[28rem] max-h-[85vh] overflow-y-auto border border-[#DCE9E1] rounded-2xl bg-white">
           <DialogHeader>
-            <DialogTitle>Binaan: {viewingMentor?.name}</DialogTitle>
+            <DialogTitle className="text-base sm:text-lg font-bold text-[#173C32]">Binaan Terhubung: {viewingMentor?.name}</DialogTitle>
           </DialogHeader>
           <div className="py-2 space-y-3">
             {viewingMentor && (() => {
               const mBinaan = binaan.filter((b) => b.mentor_id === viewingMentor.id);
               if (mBinaan.length === 0) {
-                return <p className="text-xs text-muted-foreground">Belum ada binaan untuk mentor ini.</p>;
+                return <p className="text-xs text-[#52635C]">Belum ada binaan terikat untuk mentor ini.</p>;
               }
               return (
-                <div className="overflow-x-auto border border-border rounded-md">
+                <div className="overflow-x-auto border border-[#DCE9E1] rounded-xl">
                   <table className="w-full text-left text-sm">
-                    <thead className="border-b border-border bg-secondary/40 text-xs font-semibold uppercase text-muted-foreground">
+                    <thead className="border-b border-[#DCE9E1] bg-[#EAF4EE] text-xs font-semibold uppercase text-[#245347]">
                       <tr>
                         <th className="px-3 py-2 text-right w-10">No</th>
                         <th className="px-3 py-2">Nama Binaan</th>
                         <th className="px-3 py-2">Status</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-border">
+                    <tbody className="divide-y divide-[#DCE9E1]">
                       {mBinaan.map((b, i) => (
                         <tr key={b.id}>
-                          <td className="px-3 py-2 text-right tabular-nums text-muted-foreground text-xs">{i + 1}</td>
-                          <td className="px-3 py-2 font-medium">{b.name}</td>
+                          <td className="px-3 py-2 text-right tabular-nums text-[#52635C] text-xs">{i + 1}</td>
+                          <td className="px-3 py-2 font-medium text-[#173C32]">{b.name}</td>
                           <td className="px-3 py-2">
                             <Badge variant={b.status === "active" ? "default" : "secondary"} className="text-xs">
                               {b.status === "active" ? "Aktif" : "Nonaktif"}
@@ -953,7 +968,7 @@ function MentorSection({ rows, binaan }: { rows: any[]; binaan: any[] }) {
             })()}
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setViewingMentor(null)}>
+            <Button variant="outline" onClick={() => setViewingMentor(null)} className="w-full sm:w-auto border-[#DCE9E1]">
               Tutup
             </Button>
           </DialogFooter>
@@ -962,12 +977,12 @@ function MentorSection({ rows, binaan }: { rows: any[]; binaan: any[] }) {
 
       {/* Edit Mentor Dialog */}
       <Dialog open={editingMentor !== null} onOpenChange={(open) => !open && setEditingMentor(null)}>
-        <DialogContent className="sm:max-w-[28rem]">
+        <DialogContent className="w-[92vw] sm:max-w-[28rem] max-h-[85vh] overflow-y-auto border border-[#DCE9E1] rounded-2xl bg-white">
           <DialogHeader>
-            <DialogTitle>Edit Mentor: {editingMentor?.name}</DialogTitle>
+            <DialogTitle className="text-base sm:text-lg font-bold text-[#173C32]">Edit Mentor: {editingMentor?.name}</DialogTitle>
           </DialogHeader>
           <form
-            className="space-y-3 py-2 text-sm"
+            className="space-y-3 py-2 text-xs sm:text-sm"
             onSubmit={(e) => {
               e.preventDefault();
               if (!editingMentor) return;
@@ -982,27 +997,29 @@ function MentorSection({ rows, binaan }: { rows: any[]; binaan: any[] }) {
             }}
           >
             <div className="space-y-1.5">
-              <Label htmlFor="m-edit-name">Nama Mentor</Label>
+              <Label htmlFor="m-edit-name" className="text-xs font-semibold text-[#173C32]">Nama Mentor</Label>
               <Input
                 id="m-edit-name"
                 required
                 maxLength={100}
                 value={editName}
                 onChange={(e) => setEditName(e.target.value)}
+                className="min-h-[44px] bg-white border-[#D5E3DB]"
               />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="m-edit-username">Username (login mentor)</Label>
+              <Label htmlFor="m-edit-username" className="text-xs font-semibold text-[#173C32]">Username (login mentor)</Label>
               <Input
                 id="m-edit-username"
                 maxLength={50}
                 value={editUsername}
                 onChange={(e) => setEditUsername(e.target.value)}
                 placeholder="contoh: abi_azam"
+                className="min-h-[44px] bg-white border-[#D5E3DB]"
               />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="m-edit-password">Password Baru (opsional)</Label>
+              <Label htmlFor="m-edit-password" className="text-xs font-semibold text-[#173C32]">Password Baru (opsional)</Label>
               <Input
                 id="m-edit-password"
                 type="password"
@@ -1010,12 +1027,13 @@ function MentorSection({ rows, binaan }: { rows: any[]; binaan: any[] }) {
                 value={editPassword}
                 onChange={(e) => setEditPassword(e.target.value)}
                 placeholder="Kosongkan jika tidak diubah"
+                className="min-h-[44px] bg-white border-[#D5E3DB]"
               />
             </div>
             <div className="space-y-1.5">
-              <Label>Status</Label>
+              <Label className="text-xs font-semibold text-[#173C32]">Status Mentor</Label>
               <Select value={editStatus} onValueChange={(val: any) => setEditStatus(val)}>
-                <SelectTrigger>
+                <SelectTrigger className="w-full min-h-[44px] bg-white border-[#D5E3DB]">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -1024,11 +1042,11 @@ function MentorSection({ rows, binaan }: { rows: any[]; binaan: any[] }) {
                 </SelectContent>
               </Select>
             </div>
-            <DialogFooter className="pt-2">
-              <Button type="button" variant="outline" onClick={() => setEditingMentor(null)}>
+            <DialogFooter className="pt-2 flex-col sm:flex-row gap-2">
+              <Button type="button" variant="outline" onClick={() => setEditingMentor(null)} className="w-full sm:w-auto border-[#DCE9E1]">
                 Batal
               </Button>
-              <Button type="submit" disabled={save.isPending}>
+              <Button type="submit" disabled={save.isPending} className="w-full sm:w-auto bg-[#006B54] hover:bg-[#005844] text-white font-semibold">
                 {save.isPending && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />}
                 Simpan Perubahan
               </Button>
@@ -1039,18 +1057,18 @@ function MentorSection({ rows, binaan }: { rows: any[]; binaan: any[] }) {
 
       {/* Delete Mentor Confirmation AlertDialog */}
       <AlertDialog open={deletingMentor !== null} onOpenChange={(open) => !open && setDeletingMentor(null)}>
-        <AlertDialogContent>
+        <AlertDialogContent className="w-[92vw] sm:max-w-[28rem] border border-[#DCE9E1] rounded-2xl bg-white">
           <AlertDialogHeader>
-            <AlertDialogTitle>Hapus Mentor {deletingMentor?.name}?</AlertDialogTitle>
-            <AlertDialogDescription>
+            <AlertDialogTitle className="text-base sm:text-lg font-bold text-[#173C32]">Hapus Mentor {deletingMentor?.name}?</AlertDialogTitle>
+            <AlertDialogDescription className="text-xs sm:text-sm text-[#52635C]">
               Jika mentor ini masih memiliki data binaan, sistem akan secara otomatis mengubah statusnya menjadi
-              <strong> nonaktif</strong> (soft delete) untuk melindungi integritas data binaan.
+              <strong className="text-[#173C32]"> nonaktif</strong> (soft delete) untuk melindungi integritas data binaan.
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Batal</AlertDialogCancel>
+          <AlertDialogFooter className="flex-col sm:flex-row gap-2">
+            <AlertDialogCancel className="w-full sm:w-auto border-[#DCE9E1]">Batal</AlertDialogCancel>
             <AlertDialogAction
-              className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
+              className="w-full sm:w-auto bg-[#D92D20] hover:bg-[#B42318] text-white font-semibold"
               onClick={() => deletingMentor && deleteMentorMut.mutate(deletingMentor.id)}
             >
               Hapus / Nonaktifkan
@@ -1104,10 +1122,10 @@ function BinaanSection({ rows, mentors }: { rows: any[]; mentors: any[] }) {
 
   return (
     <div className="space-y-4">
-      <div className="grid gap-4 md:grid-cols-[20rem_1fr]">
-        <Panel title="Tambah Binaan">
+      <div className="grid gap-4 grid-cols-1 md:grid-cols-[20rem_1fr]">
+        <Panel title="Tambah Binaan Master">
           <form
-            className="space-y-3"
+            className="space-y-3 text-xs sm:text-sm"
             onSubmit={(e) => {
               e.preventDefault();
               if (!mentorId) {
@@ -1119,7 +1137,7 @@ function BinaanSection({ rows, mentors }: { rows: any[]; mentors: any[] }) {
             }}
           >
             <div className="space-y-1.5">
-              <Label htmlFor="b-name">Nama Binaan</Label>
+              <Label htmlFor="b-name" className="text-xs font-semibold text-[#173C32]">Nama Binaan</Label>
               <Input
                 id="b-name"
                 required
@@ -1127,12 +1145,13 @@ function BinaanSection({ rows, mentors }: { rows: any[]; mentors: any[] }) {
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="contoh: Abi Erle"
+                className="min-h-[44px] bg-white border-[#D5E3DB]"
               />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="b-mentor">Mentor</Label>
+              <Label htmlFor="b-mentor" className="text-xs font-semibold text-[#173C32]">Mentor Pengampu</Label>
               <Select value={mentorId} onValueChange={(val: any) => setMentorId(val)}>
-                <SelectTrigger id="b-mentor">
+                <SelectTrigger id="b-mentor" className="w-full min-h-[44px] bg-white border-[#D5E3DB]">
                   <SelectValue placeholder="Pilih Mentor" />
                 </SelectTrigger>
                 <SelectContent>
@@ -1144,7 +1163,7 @@ function BinaanSection({ rows, mentors }: { rows: any[]; mentors: any[] }) {
                 </SelectContent>
               </Select>
             </div>
-            <Button type="submit" disabled={save.isPending} className="w-full">
+            <Button type="submit" disabled={save.isPending} className="w-full bg-[#006B54] hover:bg-[#005844] text-white font-semibold h-11">
               {save.isPending && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />}
               Simpan Binaan
             </Button>
@@ -1153,8 +1172,8 @@ function BinaanSection({ rows, mentors }: { rows: any[]; mentors: any[] }) {
 
         <Panel title="Daftar Binaan Master">
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm">
-              <thead className="border-b border-border bg-secondary/40 text-xs font-semibold uppercase text-muted-foreground">
+            <table className="w-full text-left text-sm min-w-[28rem]">
+              <thead className="border-b border-[#DCE9E1] bg-[#EAF4EE] text-xs font-semibold uppercase text-[#245347]">
                 <tr>
                   <th className="px-3 py-2 text-right w-12">No</th>
                   <th className="px-3 py-2">Nama Binaan</th>
@@ -1163,18 +1182,18 @@ function BinaanSection({ rows, mentors }: { rows: any[]; mentors: any[] }) {
                   <th className="px-3 py-2 text-right">Aksi</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-border">
+              <tbody className="divide-y divide-[#DCE9E1]">
                 {rows.map((b, i) => {
                   const mentor = mentors.find((m) => m.id === b.mentor_id);
                   const isDeleted = b.status === "inactive" || Boolean(b.deleted_at);
 
                   return (
-                    <tr key={b.id} className={isDeleted ? "opacity-60 bg-muted/20" : "hover:bg-secondary/20"}>
-                      <td className="px-3 py-2 text-right tabular-nums text-muted-foreground text-xs">
+                    <tr key={b.id} className={isDeleted ? "opacity-60 bg-muted/20" : "hover:bg-[#F5FAF7]"}>
+                      <td className="px-3 py-2 text-right tabular-nums text-[#52635C] text-xs">
                         {i + 1}
                       </td>
-                      <td className="px-3 py-2 font-medium">{b.name}</td>
-                      <td className="px-3 py-2 text-xs text-muted-foreground">{mentor?.name ?? "-"}</td>
+                      <td className="px-3 py-2 font-semibold text-[#173C32]">{b.name}</td>
+                      <td className="px-3 py-2 text-xs text-[#52635C]">{mentor?.name ?? "-"}</td>
                       <td className="px-3 py-2">
                         <Badge variant={isDeleted ? "secondary" : "default"} className="text-xs">
                           {isDeleted ? "Nonaktif" : "Aktif"}
@@ -1185,7 +1204,7 @@ function BinaanSection({ rows, mentors }: { rows: any[]; mentors: any[] }) {
                           <Button
                             variant="outline"
                             size="sm"
-                            className="h-7 px-2 text-xs"
+                            className="h-7 px-2 text-xs font-semibold border-[#DCE9E1]"
                             onClick={() => restore.mutate({ id: b.id })}
                           >
                             Aktifkan
@@ -1195,7 +1214,7 @@ function BinaanSection({ rows, mentors }: { rows: any[]; mentors: any[] }) {
                             <Button
                               variant="ghost"
                               size="sm"
-                              className="h-7 px-2 text-xs"
+                              className="h-7 px-2 text-xs font-semibold text-[#006B54]"
                               onClick={() => openEditModal(b)}
                             >
                               Edit
@@ -1203,7 +1222,7 @@ function BinaanSection({ rows, mentors }: { rows: any[]; mentors: any[] }) {
                             <Button
                               variant="ghost"
                               size="sm"
-                              className="h-7 px-2 text-xs text-destructive hover:text-destructive"
+                              className="h-7 px-2 text-xs font-semibold text-destructive hover:text-destructive"
                               onClick={() => setDeletingBinaan(b)}
                             >
                               Hapus
@@ -1222,12 +1241,12 @@ function BinaanSection({ rows, mentors }: { rows: any[]; mentors: any[] }) {
 
       {/* Edit Binaan Dialog */}
       <Dialog open={editingBinaan !== null} onOpenChange={(open) => !open && setEditingBinaan(null)}>
-        <DialogContent className="sm:max-w-[28rem]">
+        <DialogContent className="w-[92vw] sm:max-w-[28rem] max-h-[85vh] overflow-y-auto border border-[#DCE9E1] rounded-2xl bg-white">
           <DialogHeader>
-            <DialogTitle>Edit Binaan: {editingBinaan?.name}</DialogTitle>
+            <DialogTitle className="text-base sm:text-lg font-bold text-[#173C32]">Edit Binaan: {editingBinaan?.name}</DialogTitle>
           </DialogHeader>
           <form
-            className="space-y-3 py-2"
+            className="space-y-3 py-2 text-xs sm:text-sm"
             onSubmit={(e) => {
               e.preventDefault();
               if (!editingBinaan) return;
@@ -1240,19 +1259,20 @@ function BinaanSection({ rows, mentors }: { rows: any[]; mentors: any[] }) {
             }}
           >
             <div className="space-y-1.5">
-              <Label htmlFor="b-edit-name">Nama Binaan</Label>
+              <Label htmlFor="b-edit-name" className="text-xs font-semibold text-[#173C32]">Nama Binaan</Label>
               <Input
                 id="b-edit-name"
                 required
                 maxLength={100}
                 value={editName}
                 onChange={(e) => setEditName(e.target.value)}
+                className="min-h-[44px] bg-white border-[#D5E3DB]"
               />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="b-edit-mentor">Mentor</Label>
+              <Label htmlFor="b-edit-mentor" className="text-xs font-semibold text-[#173C32]">Mentor Pengampu</Label>
               <Select value={editMentorId} onValueChange={(val: any) => setEditMentorId(val)}>
-                <SelectTrigger id="b-edit-mentor">
+                <SelectTrigger id="b-edit-mentor" className="w-full min-h-[44px] bg-white border-[#D5E3DB]">
                   <SelectValue placeholder="Pilih Mentor" />
                 </SelectTrigger>
                 <SelectContent>
@@ -1264,11 +1284,11 @@ function BinaanSection({ rows, mentors }: { rows: any[]; mentors: any[] }) {
                 </SelectContent>
               </Select>
             </div>
-            <DialogFooter className="pt-2">
-              <Button type="button" variant="outline" onClick={() => setEditingBinaan(null)}>
+            <DialogFooter className="pt-2 flex-col sm:flex-row gap-2">
+              <Button type="button" variant="outline" onClick={() => setEditingBinaan(null)} className="w-full sm:w-auto border-[#DCE9E1]">
                 Batal
               </Button>
-              <Button type="submit" disabled={save.isPending}>
+              <Button type="submit" disabled={save.isPending} className="w-full sm:w-auto bg-[#006B54] hover:bg-[#005844] text-white font-semibold">
                 {save.isPending && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />}
                 Simpan Perubahan
               </Button>
@@ -1279,18 +1299,18 @@ function BinaanSection({ rows, mentors }: { rows: any[]; mentors: any[] }) {
 
       {/* Delete Binaan Confirmation AlertDialog */}
       <AlertDialog open={deletingBinaan !== null} onOpenChange={(open) => !open && setDeletingBinaan(null)}>
-        <AlertDialogContent>
+        <AlertDialogContent className="w-[92vw] sm:max-w-[28rem] border border-[#DCE9E1] rounded-2xl bg-white">
           <AlertDialogHeader>
-            <AlertDialogTitle>Hapus Binaan {deletingBinaan?.name}?</AlertDialogTitle>
-            <AlertDialogDescription>
+            <AlertDialogTitle className="text-base sm:text-lg font-bold text-[#173C32]">Hapus Binaan {deletingBinaan?.name}?</AlertDialogTitle>
+            <AlertDialogDescription className="text-xs sm:text-sm text-[#52635C]">
               Jika binaan ini sudah pernah mengisi mutabaah, sistem akan secara otomatis menyimpan statusnya sebagai
-              <strong> nonaktif</strong> untuk melindungi riwayat mutabaah.
+              <strong className="text-[#173C32]"> nonaktif</strong> untuk melindungi riwayat mutabaah.
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Batal</AlertDialogCancel>
+          <AlertDialogFooter className="flex-col sm:flex-row gap-2">
+            <AlertDialogCancel className="w-full sm:w-auto border-[#DCE9E1]">Batal</AlertDialogCancel>
             <AlertDialogAction
-              className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
+              className="w-full sm:w-auto bg-[#D92D20] hover:bg-[#B42318] text-white font-semibold"
               onClick={() => deletingBinaan && deleteBinaanMut.mutate(deletingBinaan.id)}
             >
               Hapus / Nonaktifkan
@@ -1310,10 +1330,10 @@ function IndicatorSection({ rows }: { rows: any[] }) {
   const [unit, setUnit] = useState("kali");
 
   return (
-    <div className="grid gap-4 md:grid-cols-[20rem_1fr]">
-      <Panel title="Tambah Indikator">
+    <div className="grid gap-4 grid-cols-1 md:grid-cols-[20rem_1fr]">
+      <Panel title="Tambah Indikator Target">
         <form
-          className="space-y-3"
+          className="space-y-3 text-xs sm:text-sm"
           onSubmit={(e) => {
             e.preventDefault();
             save.mutate({
@@ -1329,7 +1349,7 @@ function IndicatorSection({ rows }: { rows: any[] }) {
           }}
         >
           <div className="space-y-1.5">
-            <Label htmlFor="i-code">Kode</Label>
+            <Label htmlFor="i-code" className="text-xs font-semibold text-[#173C32]">Kode</Label>
             <Input
               id="i-code"
               required
@@ -1337,10 +1357,11 @@ function IndicatorSection({ rows }: { rows: any[] }) {
               value={code}
               onChange={(e) => setCode(e.target.value)}
               placeholder="contoh: TAHAJUD"
+              className="min-h-[44px] bg-white border-[#D5E3DB]"
             />
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="i-name">Nama Indikator</Label>
+            <Label htmlFor="i-name" className="text-xs font-semibold text-[#173C32]">Nama Indikator</Label>
             <Input
               id="i-name"
               required
@@ -1348,11 +1369,12 @@ function IndicatorSection({ rows }: { rows: any[] }) {
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="contoh: Sholat Tahajud"
+              className="min-h-[44px] bg-white border-[#D5E3DB]"
             />
           </div>
           <div className="grid grid-cols-2 gap-2">
             <div className="space-y-1.5">
-              <Label htmlFor="i-target">Target</Label>
+              <Label htmlFor="i-target" className="text-xs font-semibold text-[#173C32]">Target</Label>
               <Input
                 id="i-target"
                 type="number"
@@ -1360,10 +1382,11 @@ function IndicatorSection({ rows }: { rows: any[] }) {
                 min={1}
                 value={target}
                 onChange={(e) => setTarget(e.target.value)}
+                className="min-h-[44px] bg-white border-[#D5E3DB]"
               />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="i-unit">Satuan</Label>
+              <Label htmlFor="i-unit" className="text-xs font-semibold text-[#173C32]">Satuan</Label>
               <Input
                 id="i-unit"
                 required
@@ -1371,39 +1394,40 @@ function IndicatorSection({ rows }: { rows: any[] }) {
                 value={unit}
                 onChange={(e) => setUnit(e.target.value)}
                 placeholder="kali"
+                className="min-h-[44px] bg-white border-[#D5E3DB]"
               />
             </div>
           </div>
-          <Button type="submit" disabled={save.isPending} className="w-full">
+          <Button type="submit" disabled={save.isPending} className="w-full bg-[#006B54] hover:bg-[#005844] text-white font-semibold h-11">
             {save.isPending && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />}
             Simpan Indikator
           </Button>
         </form>
       </Panel>
 
-      <Panel title="Daftar Indikator Target">
+      <Panel title="Daftar Indikator Target Master">
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm">
-            <thead className="border-b border-border bg-secondary/40 text-xs font-semibold uppercase text-muted-foreground">
+          <table className="w-full text-left text-sm min-w-[28rem]">
+            <thead className="border-b border-[#DCE9E1] bg-[#EAF4EE] text-xs font-semibold uppercase text-[#245347]">
               <tr>
                 <th className="px-3 py-2">Urutan</th>
                 <th className="px-3 py-2">Kode</th>
-                <th className="px-3 py-2">Nama</th>
-                <th className="px-3 py-2">Target</th>
+                <th className="px-3 py-2">Nama Indikator</th>
+                <th className="px-3 py-2">Target Pekan</th>
                 <th className="px-3 py-2">Status</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-border">
+            <tbody className="divide-y divide-[#DCE9E1]">
               {rows.map((row) => (
-                <tr key={row.id}>
-                  <td className="px-3 py-2 tabular-nums">{row.order_number}</td>
-                  <td className="px-3 py-2 font-mono text-xs">{row.code}</td>
-                  <td className="px-3 py-2 font-medium">{row.name}</td>
-                  <td className="px-3 py-2 tabular-nums">
+                <tr key={row.id} className="hover:bg-[#F5FAF7]">
+                  <td className="px-3 py-2 tabular-nums text-xs font-medium text-[#52635C]">{row.order_number}</td>
+                  <td className="px-3 py-2 font-mono text-xs text-[#006B54] font-semibold">{row.code}</td>
+                  <td className="px-3 py-2 font-semibold text-[#173C32]">{row.name}</td>
+                  <td className="px-3 py-2 tabular-nums text-xs text-[#52635C]">
                     {row.target} {row.unit}
                   </td>
                   <td className="px-3 py-2">
-                    <Badge variant={row.active ? "default" : "secondary"}>
+                    <Badge variant={row.active ? "default" : "secondary"} className="text-xs">
                       {row.active ? "Aktif" : "Nonaktif"}
                     </Badge>
                   </td>
@@ -1448,10 +1472,10 @@ function PeriodSection({ rows }: { rows: any[] }) {
 
   return (
     <div className="space-y-4">
-      <div className="grid gap-4 md:grid-cols-[20rem_1fr]">
+      <div className="grid gap-4 grid-cols-1 md:grid-cols-[20rem_1fr]">
         <Panel title="Tambah Periode Pekanan">
           <form
-            className="space-y-3"
+            className="space-y-3 text-xs sm:text-sm"
             onSubmit={(e) => {
               e.preventDefault();
               save.mutate({ start_date: start, end_date: end, status });
@@ -1460,29 +1484,31 @@ function PeriodSection({ rows }: { rows: any[] }) {
             }}
           >
             <div className="space-y-1.5">
-              <Label htmlFor="p-start">Tanggal Mulai</Label>
+              <Label htmlFor="p-start" className="text-xs font-semibold text-[#173C32]">Tanggal Mulai</Label>
               <Input
                 id="p-start"
                 type="date"
                 required
                 value={start}
                 onChange={(e) => setStart(e.target.value)}
+                className="min-h-[44px] bg-white border-[#D5E3DB]"
               />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="p-end">Tanggal Selesai</Label>
+              <Label htmlFor="p-end" className="text-xs font-semibold text-[#173C32]">Tanggal Selesai</Label>
               <Input
                 id="p-end"
                 type="date"
                 required
                 value={end}
                 onChange={(e) => setEnd(e.target.value)}
+                className="min-h-[44px] bg-white border-[#D5E3DB]"
               />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="p-status">Status Periode</Label>
+              <Label htmlFor="p-status" className="text-xs font-semibold text-[#173C32]">Status Periode</Label>
               <Select value={status} onValueChange={(val: any) => setStatus(val)}>
-                <SelectTrigger id="p-status">
+                <SelectTrigger id="p-status" className="w-full min-h-[44px] bg-white border-[#D5E3DB]">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -1492,7 +1518,7 @@ function PeriodSection({ rows }: { rows: any[] }) {
                 </SelectContent>
               </Select>
             </div>
-            <Button type="submit" disabled={save.isPending} className="w-full">
+            <Button type="submit" disabled={save.isPending} className="w-full bg-[#006B54] hover:bg-[#005844] text-white font-semibold h-11">
               {save.isPending && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />}
               Simpan Periode Baru
             </Button>
@@ -1501,18 +1527,18 @@ function PeriodSection({ rows }: { rows: any[] }) {
 
         <Panel title="Daftar Periode Pekanan Master">
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm">
-              <thead className="border-b border-border bg-secondary/40 text-xs font-semibold uppercase text-muted-foreground">
+            <table className="w-full text-left text-sm min-w-[28rem]">
+              <thead className="border-b border-[#DCE9E1] bg-[#EAF4EE] text-xs font-semibold uppercase text-[#245347]">
                 <tr>
-                  <th className="px-3 py-2">Rentang Tanggal</th>
+                  <th className="px-3 py-2">Rentang Tanggal Pekan</th>
                   <th className="px-3 py-2">Status</th>
                   <th className="px-3 py-2 text-right">Aksi</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-border">
+              <tbody className="divide-y divide-[#DCE9E1]">
                 {rows.map((row) => (
-                  <tr key={row.id} className="hover:bg-secondary/20">
-                    <td className="px-3 py-2 font-medium">{formatPeriod(row.start_date, row.end_date)}</td>
+                  <tr key={row.id} className="hover:bg-[#F5FAF7]">
+                    <td className="px-3 py-2 font-semibold text-[#173C32]">{formatPeriod(row.start_date, row.end_date)}</td>
                     <td className="px-3 py-2">
                       <Badge
                         variant={
@@ -1536,7 +1562,7 @@ function PeriodSection({ rows }: { rows: any[] }) {
                         <Button
                           variant="outline"
                           size="sm"
-                          className="h-7 px-2 text-xs text-emerald-600 hover:text-emerald-700 border-emerald-300 dark:text-emerald-400"
+                          className="h-7 px-2 text-xs font-semibold text-[#006B54] border-[#CFE4D8] hover:bg-[#EAF4EE]"
                           onClick={() => handleActivateClick(row)}
                         >
                           Aktifkan
@@ -1545,7 +1571,7 @@ function PeriodSection({ rows }: { rows: any[] }) {
                       <Button
                         variant="ghost"
                         size="sm"
-                        className="h-7 px-2 text-xs"
+                        className="h-7 px-2 text-xs font-semibold text-[#006B54]"
                         onClick={() => openEditModal(row)}
                       >
                         Edit
@@ -1561,12 +1587,12 @@ function PeriodSection({ rows }: { rows: any[] }) {
 
       {/* Edit Periode Dialog */}
       <Dialog open={editingPeriod !== null} onOpenChange={(open) => !open && setEditingPeriod(null)}>
-        <DialogContent className="sm:max-w-[28rem]">
+        <DialogContent className="w-[92vw] sm:max-w-[28rem] max-h-[85vh] overflow-y-auto border border-[#DCE9E1] rounded-2xl bg-white">
           <DialogHeader>
-            <DialogTitle>Edit Periode Pekanan</DialogTitle>
+            <DialogTitle className="text-base sm:text-lg font-bold text-[#173C32]">Edit Periode Pekanan</DialogTitle>
           </DialogHeader>
           <form
-            className="space-y-3 py-2 text-sm"
+            className="space-y-3 py-2 text-xs sm:text-sm"
             onSubmit={(e) => {
               e.preventDefault();
               if (!editingPeriod) return;
@@ -1580,29 +1606,31 @@ function PeriodSection({ rows }: { rows: any[] }) {
             }}
           >
             <div className="space-y-1.5">
-              <Label htmlFor="p-edit-start">Tanggal Mulai</Label>
+              <Label htmlFor="p-edit-start" className="text-xs font-semibold text-[#173C32]">Tanggal Mulai</Label>
               <Input
                 id="p-edit-start"
                 type="date"
                 required
                 value={editStart}
                 onChange={(e) => setEditStart(e.target.value)}
+                className="min-h-[44px] bg-white border-[#D5E3DB]"
               />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="p-edit-end">Tanggal Selesai</Label>
+              <Label htmlFor="p-edit-end" className="text-xs font-semibold text-[#173C32]">Tanggal Selesai</Label>
               <Input
                 id="p-edit-end"
                 type="date"
                 required
                 value={editEnd}
                 onChange={(e) => setEditEnd(e.target.value)}
+                className="min-h-[44px] bg-white border-[#D5E3DB]"
               />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="p-edit-status">Status</Label>
+              <Label htmlFor="p-edit-status" className="text-xs font-semibold text-[#173C32]">Status Periode</Label>
               <Select value={editStatus} onValueChange={(val: any) => setEditStatus(val)}>
-                <SelectTrigger id="p-edit-status">
+                <SelectTrigger id="p-edit-status" className="w-full min-h-[44px] bg-white border-[#D5E3DB]">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -1612,11 +1640,11 @@ function PeriodSection({ rows }: { rows: any[] }) {
                 </SelectContent>
               </Select>
             </div>
-            <DialogFooter className="pt-2">
-              <Button type="button" variant="outline" onClick={() => setEditingPeriod(null)}>
+            <DialogFooter className="pt-2 flex-col sm:flex-row gap-2">
+              <Button type="button" variant="outline" onClick={() => setEditingPeriod(null)} className="w-full sm:w-auto border-[#DCE9E1]">
                 Batal
               </Button>
-              <Button type="submit" disabled={save.isPending}>
+              <Button type="submit" disabled={save.isPending} className="w-full sm:w-auto bg-[#006B54] hover:bg-[#005844] text-white font-semibold">
                 {save.isPending && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />}
                 Simpan Perubahan
               </Button>
@@ -1627,19 +1655,20 @@ function PeriodSection({ rows }: { rows: any[] }) {
 
       {/* Confirmation for Single Active Period */}
       <AlertDialog open={activatingPeriod !== null} onOpenChange={(open) => !open && setActivatingPeriod(null)}>
-        <AlertDialogContent>
+        <AlertDialogContent className="w-[92vw] sm:max-w-[28rem] border border-[#DCE9E1] rounded-2xl bg-white">
           <AlertDialogHeader>
-            <AlertDialogTitle>Konfirmasi Aktivasi Periode</AlertDialogTitle>
-            <AlertDialogDescription>
-              Periode <strong className="text-foreground">{activePeriod ? formatPeriod(activePeriod.start_date, activePeriod.end_date) : ""}</strong> saat ini sedang AKTIF.
+            <AlertDialogTitle className="text-base sm:text-lg font-bold text-[#173C32]">Konfirmasi Aktivasi Periode</AlertDialogTitle>
+            <AlertDialogDescription className="text-xs sm:text-sm text-[#52635C]">
+              Periode <strong className="text-[#173C32]">{activePeriod ? formatPeriod(activePeriod.start_date, activePeriod.end_date) : ""}</strong> saat ini sedang AKTIF.
               <br /><br />
               Apakah Anda ingin menonaktifkan periode tersebut dan mengaktifkan periode{" "}
-              <strong className="text-foreground">{activatingPeriod ? formatPeriod(activatingPeriod.start_date, activatingPeriod.end_date) : ""}</strong>?
+              <strong className="text-[#173C32]">{activatingPeriod ? formatPeriod(activatingPeriod.start_date, activatingPeriod.end_date) : ""}</strong>?
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Batal</AlertDialogCancel>
+          <AlertDialogFooter className="flex-col sm:flex-row gap-2">
+            <AlertDialogCancel className="w-full sm:w-auto border-[#DCE9E1]">Batal</AlertDialogCancel>
             <AlertDialogAction
+              className="w-full sm:w-auto bg-[#006B54] hover:bg-[#005844] text-white font-semibold"
               onClick={() => {
                 if (!activatingPeriod) return;
                 save.mutate({
