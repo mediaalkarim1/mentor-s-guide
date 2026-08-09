@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
@@ -6,6 +6,7 @@ import { Loader2, Users, CheckCircle2, AlertCircle, Award } from "lucide-react";
 import { toast } from "sonner";
 
 import { useAuth } from "@/components/AuthProvider";
+import { getClientMasterStore, updateClientMasterStore, type MasterClientStore } from "@/lib/master_store_client";
 import { getMyAccount } from "@/lib/recap.functions";
 import {
   deleteBinaan,
@@ -96,12 +97,50 @@ function AdminPage() {
   const [viewMode, setViewMode] = useState<"pekanan" | "bulanan" | "riwayat">("pekanan");
   const [viewingMentorHistory, setViewingMentorHistory] = useState<{ mentorId: string; mentorName: string } | null>(null);
 
+  const [clientStore, setClientStore] = useState<MasterClientStore>(() => getClientMasterStore());
+
+  useEffect(() => {
+    const handleUpdate = () => {
+      setClientStore(getClientMasterStore());
+    };
+    window.addEventListener("mutabaah_master_store_updated", handleUpdate);
+    return () => window.removeEventListener("mutabaah_master_store_updated", handleUpdate);
+  }, []);
+
   const dashboard = useQuery({
     queryKey: ["admin-dashboard", selectedPeriodId],
     queryFn: () => fetchDashboard({ data: selectedPeriodId ? { periodId: selectedPeriodId } : {} }),
     retry: false,
   });
   const master = useQuery({ queryKey: ["admin-data"], queryFn: () => fetchData() });
+
+  const mergedPeriods = useMemo(() => {
+    const map = new Map<string, any>();
+    (clientStore.periods ?? []).forEach((p: any) => map.set(p.id, p));
+    (master.data?.periods ?? []).forEach((p: any) => map.set(p.id, p));
+    return Array.from(map.values()).sort((a, b) => b.start_date.localeCompare(a.start_date));
+  }, [master.data?.periods, clientStore.periods]);
+
+  const mergedMentors = useMemo(() => {
+    const map = new Map<string, any>();
+    (clientStore.mentors ?? []).forEach((m: any) => map.set(m.id, m));
+    (master.data?.mentors ?? []).forEach((m: any) => map.set(m.id, m));
+    return Array.from(map.values());
+  }, [master.data?.mentors, clientStore.mentors]);
+
+  const mergedBinaan = useMemo(() => {
+    const map = new Map<string, any>();
+    (clientStore.binaan ?? []).forEach((b: any) => map.set(b.id, b));
+    (master.data?.binaan ?? []).forEach((b: any) => map.set(b.id, b));
+    return Array.from(map.values());
+  }, [master.data?.binaan, clientStore.binaan]);
+
+  const mergedIndicators = useMemo(() => {
+    const map = new Map<string, any>();
+    (clientStore.indicators ?? []).forEach((i: any) => map.set(i.id, i));
+    (master.data?.indicators ?? []).forEach((i: any) => map.set(i.id, i));
+    return Array.from(map.values()).sort((a, b) => (a.order_number || 0) - (b.order_number || 0));
+  }, [master.data?.indicators, clientStore.indicators]);
 
   const historyQuery = useQuery({
     queryKey: ["mentor-history", viewingMentorHistory?.mentorId],
@@ -254,7 +293,7 @@ function AdminPage() {
                 <SelectValue placeholder="Pilih Periode" />
               </SelectTrigger>
               <SelectContent>
-                {d.periods.map((p) => (
+                {mergedPeriods.map((p) => (
                   <SelectItem key={p.id} value={p.id}>
                     {formatPeriod(p.start_date, p.end_date)}
                     {p.status === "active" ? " (Aktif)" : p.status === "closed" ? " (Selesai)" : " (Nonaktif)"}
@@ -394,16 +433,16 @@ function AdminPage() {
         </TabsList>
 
         <TabsContent value="mentor" className="pt-2">
-          <MentorSection rows={master.data?.mentors ?? []} binaan={master.data?.binaan ?? []} />
+          <MentorSection rows={mergedMentors} binaan={mergedBinaan} />
         </TabsContent>
         <TabsContent value="binaan" className="pt-2">
-          <BinaanSection rows={master.data?.binaan ?? []} mentors={master.data?.mentors ?? []} />
+          <BinaanSection rows={mergedBinaan} mentors={mergedMentors} />
         </TabsContent>
         <TabsContent value="indikator" className="pt-2">
-          <IndicatorSection rows={master.data?.indicators ?? []} />
+          <IndicatorSection rows={mergedIndicators} />
         </TabsContent>
         <TabsContent value="periode" className="pt-2">
-          <PeriodSection rows={master.data?.periods ?? []} />
+          <PeriodSection rows={mergedPeriods} />
         </TabsContent>
       </Tabs>
 
@@ -732,17 +771,18 @@ function Stat({ label, value, icon, badgeClass }: { label: string; value: string
   );
 }
 
-function useSaver(fn: any, keys: string[]) {
+function useSaver(fn: any, keys: string[], onStoreUpdate?: (res: any, vars: any) => void) {
   const queryClient = useQueryClient();
   const call = useServerFn(fn);
   return useMutation({
     mutationFn: (data: any) => call({ data }),
-    onSuccess: (result: any) => {
+    onSuccess: (result: any, variables: any) => {
       if (result?.ok === false) {
         toast.error(result.error ?? "Gagal menyimpan.");
         return;
       }
       toast.success("Data tersimpan.");
+      if (onStoreUpdate) onStoreUpdate(result, variables);
       keys.forEach((k) => queryClient.invalidateQueries({ queryKey: [k] }));
     },
     onError: () => toast.error("Gagal menyimpan data."),
@@ -760,8 +800,17 @@ function Panel({ title, children }: { title: string; children: React.ReactNode }
 
 function MentorSection({ rows, binaan }: { rows: any[]; binaan: any[] }) {
   const queryClient = useQueryClient();
-  const save = useSaver(saveMentor, ["admin-data", "admin-dashboard", "admin-mentors"]);
-  const del = useSaver(deleteMentor, ["admin-data", "admin-dashboard", "admin-mentors"]);
+  const save = useSaver(saveMentor, ["admin-data", "admin-dashboard", "admin-mentors"], (res, vars) => {
+    updateClientMasterStore("mentors", "upsert", {
+      id: res?.mentor?.id ?? vars.id ?? `a1000000-0000-0000-0000-${Date.now().toString().padStart(12, '0').slice(-12)}`,
+      name: vars.name,
+      username: vars.username,
+      status: vars.status ?? "active",
+    });
+  });
+  const del = useSaver(deleteMentor, ["admin-data", "admin-dashboard", "admin-mentors"], (res, vars) => {
+    updateClientMasterStore("mentors", "delete", { id: vars.id });
+  });
 
   const [name, setName] = useState("");
   const [username, setUsername] = useState("");
@@ -1101,9 +1150,21 @@ function MentorSection({ rows, binaan }: { rows: any[]; binaan: any[] }) {
 
 function BinaanSection({ rows, mentors }: { rows: any[]; mentors: any[] }) {
   const queryClient = useQueryClient();
-  const save = useSaver(saveBinaan, ["admin-data", "admin-dashboard", "admin-mentors"]);
-  const del = useSaver(deleteBinaan, ["admin-data", "admin-dashboard", "admin-mentors"]);
-  const restore = useSaver(restoreBinaan, ["admin-data", "admin-dashboard", "admin-mentors"]);
+  const save = useSaver(saveBinaan, ["admin-data", "admin-dashboard", "admin-mentors"], (res, vars) => {
+    updateClientMasterStore("binaan", "upsert", {
+      id: vars.id ?? `b1000000-0000-0000-0000-${Date.now().toString().padStart(12, '0').slice(-12)}`,
+      name: vars.name,
+      mentor_id: vars.mentor_id,
+      phone: vars.phone,
+      status: vars.status ?? "active",
+    });
+  });
+  const del = useSaver(deleteBinaan, ["admin-data", "admin-dashboard", "admin-mentors"], (res, vars) => {
+    updateClientMasterStore("binaan", "delete", { id: vars.id });
+  });
+  const restore = useSaver(restoreBinaan, ["admin-data", "admin-dashboard", "admin-mentors"], (res, vars) => {
+    updateClientMasterStore("binaan", "upsert", { id: vars.id, status: "active" });
+  });
 
   const [name, setName] = useState("");
   const [mentorId, setMentorId] = useState<string>("");
@@ -1342,7 +1403,17 @@ function BinaanSection({ rows, mentors }: { rows: any[]; mentors: any[] }) {
 }
 
 function IndicatorSection({ rows }: { rows: any[] }) {
-  const save = useSaver(saveIndicator, ["admin-data"]);
+  const save = useSaver(saveIndicator, ["admin-data"], (res, vars) => {
+    updateClientMasterStore("indicators", "upsert", {
+      id: vars.id ?? `c1000000-0000-0000-0000-${Date.now().toString().padStart(12, '0').slice(-12)}`,
+      code: vars.code,
+      name: vars.name,
+      target: vars.target,
+      unit: vars.unit,
+      order_number: vars.order_number,
+      active: vars.active,
+    });
+  });
   const [code, setCode] = useState("");
   const [name, setName] = useState("");
   const [target, setTarget] = useState("7");
@@ -1461,7 +1532,14 @@ function IndicatorSection({ rows }: { rows: any[] }) {
 }
 
 function PeriodSection({ rows }: { rows: any[] }) {
-  const save = useSaver(savePeriod, ["admin-data", "admin-dashboard", "mentor-recap"]);
+  const save = useSaver(savePeriod, ["admin-data", "admin-dashboard", "mentor-recap"], (res, vars) => {
+    updateClientMasterStore("periods", vars.status === "active" ? "activate" : "upsert", {
+      id: vars.id ?? `d1000000-0000-0000-0000-${Date.now().toString().padStart(12, '0').slice(-12)}`,
+      start_date: vars.start_date,
+      end_date: vars.end_date,
+      status: vars.status,
+    });
+  });
   const [start, setStart] = useState("");
   const [end, setEnd] = useState("");
   const [status, setStatus] = useState("active");
