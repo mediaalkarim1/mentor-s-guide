@@ -51,7 +51,7 @@ function DashboardPage() {
   const isAdmin = data?.account.isAdmin ?? false;
   const { data: adminData } = useQuery({
     queryKey: ["admin-mentors"],
-    queryFn: () => fetchAdmin({ data: {} }),
+    queryFn: () => fetchAdmin(),
     enabled: isAdmin,
   });
 
