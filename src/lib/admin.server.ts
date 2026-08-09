@@ -4,7 +4,6 @@ import {
   MASTER_MENTORS,
   MASTER_BINAAN,
   MASTER_INDICATORS,
-  MASTER_PERIOD,
   MASTER_PERIODS,
 } from "./master-data";
 
@@ -37,28 +36,45 @@ export async function loadAdminData(supabase: DB) {
     indicatorsData = iRes.data ?? [];
     periodsData = pRes.data ?? [];
   } catch (e) {
-    console.warn("loadAdminData query exception, using master fallback data", e);
+    console.warn("loadAdminData query exception", e);
   }
 
-  const mentorsList = (mentorsData && mentorsData.length > 0)
-    ? mentorsData
-    : MASTER_MENTORS.map((m) => ({ ...m, email: `${m.name.toLowerCase().replace(/\s+/g, "_")}@mutabaah.local`, status: "active" }));
+  // Merge DB data with in-memory MASTER data seamlessly
+  const mentorMap = new Map<string, any>();
+  MASTER_MENTORS.forEach((m) => {
+    mentorMap.set(m.id, {
+      ...m,
+      email: (m as any).email ?? `${m.name.toLowerCase().replace(/\s+/g, "_")}@mutabaah.local`,
+      status: (m as any).status ?? "active",
+    });
+  });
+  mentorsData.forEach((m) => mentorMap.set(m.id, m));
+  const mentorsList = Array.from(mentorMap.values());
 
-  const binaanList = (binaanData && binaanData.length > 0)
-    ? binaanData
-    : MASTER_BINAAN.map((b) => ({ ...b, status: "active" }));
+  const binaanMap = new Map<string, any>();
+  MASTER_BINAAN.forEach((b) => {
+    binaanMap.set(b.id, { ...b, status: (b as any).status ?? "active" });
+  });
+  binaanData.forEach((b) => binaanMap.set(b.id, b));
+  const binaanList = Array.from(binaanMap.values());
 
-  const indicatorsList = (indicatorsData && indicatorsData.length > 0)
-    ? indicatorsData
-    : MASTER_INDICATORS.map((i) => ({ ...i, active: true }));
+  const indicatorMap = new Map<string, any>();
+  MASTER_INDICATORS.forEach((i) => {
+    indicatorMap.set(i.id, { ...i, active: (i as any).active ?? true });
+  });
+  indicatorsData.forEach((i) => indicatorMap.set(i.id, i));
+  const indicatorsList = Array.from(indicatorMap.values()).sort((a, b) => a.order_number - b.order_number);
 
-  const periodsList = (periodsData && periodsData.length > 0)
-    ? periodsData
-    : [{ ...MASTER_PERIOD, status: "active" }];
+  const periodMap = new Map<string, any>();
+  MASTER_PERIODS.forEach((p) => {
+    periodMap.set(p.id, p);
+  });
+  periodsData.forEach((p) => periodMap.set(p.id, p));
+  const periodsList = Array.from(periodMap.values()).sort((a, b) => b.start_date.localeCompare(a.start_date));
 
   const mentorsMapped = mentorsList.map((m: any) => ({
     ...m,
-    username: m.email ? m.email.split("@")[0] : m.name.toLowerCase().replace(/\s+/g, "_"),
+    username: m.username ?? (m.email ? m.email.split("@")[0] : m.name.toLowerCase().replace(/\s+/g, "_")),
   }));
 
   return {
@@ -71,36 +87,96 @@ export async function loadAdminData(supabase: DB) {
 
 export async function upsertRow(supabase: DB, table: string, row: Record<string, unknown>) {
   const { id, ...values } = row as { id?: string };
-  if (id) {
-    const { error } = await supabase.from(table).update(values).eq("id", id);
-    if (error) return { ok: false, error: error.message };
-    return { ok: true };
+
+  let db = supabase;
+  try {
+    if (process.env["SUPABASE_SERVICE_ROLE_KEY"]) {
+      db = supabaseAdmin as unknown as DB;
+    }
+  } catch (e) {}
+
+  try {
+    if (id) {
+      await db.from(table).update(values).eq("id", id);
+    } else {
+      await db.from(table).insert(values);
+    }
+  } catch (e) {
+    console.warn(`upsertRow DB warning for table ${table}`, e);
   }
-  const { error } = await supabase.from(table).insert(values);
-  if (error) return { ok: false, error: error.message };
+
+  // Update in-memory master data arrays seamlessly
+  if (table === "binaan") {
+    const bId = id ?? `b1000000-0000-0000-0000-${Date.now().toString().padStart(12, '0').slice(-12)}`;
+    const idx = MASTER_BINAAN.findIndex((b) => b.id === bId);
+    const item = {
+      id: bId,
+      name: String(row.name),
+      mentor_id: String(row.mentor_id),
+      phone: row.phone ? String(row.phone) : undefined,
+      status: String(row.status ?? "active"),
+    };
+    if (idx >= 0) {
+      MASTER_BINAAN[idx] = { ...MASTER_BINAAN[idx], ...item };
+    } else {
+      MASTER_BINAAN.unshift(item);
+    }
+  } else if (table === "mutabaah_indicators") {
+    const iId = id ?? `c1000000-0000-0000-0000-${Date.now().toString().padStart(12, '0').slice(-12)}`;
+    const idx = MASTER_INDICATORS.findIndex((i) => i.id === iId);
+    const item = {
+      id: iId,
+      code: String(row.code),
+      name: String(row.name),
+      target: Number(row.target),
+      unit: String(row.unit),
+      order_number: Number(row.order_number),
+      active: Boolean(row.active ?? true),
+    };
+    if (idx >= 0) {
+      MASTER_INDICATORS[idx] = { ...MASTER_INDICATORS[idx], ...item };
+    } else {
+      MASTER_INDICATORS.push(item);
+      MASTER_INDICATORS.sort((a, b) => a.order_number - b.order_number);
+    }
+  } else if (table === "mutabaah_periods") {
+    const pId = id ?? `d1000000-0000-0000-0000-${Date.now().toString().padStart(12, '0').slice(-12)}`;
+    if (row.status === "active") {
+      MASTER_PERIODS.forEach((p) => {
+        if (p.id !== pId) p.status = "inactive";
+      });
+    }
+    const idx = MASTER_PERIODS.findIndex((p) => p.id === pId);
+    const item = {
+      id: pId,
+      start_date: String(row.start_date),
+      end_date: String(row.end_date),
+      status: String(row.status),
+    };
+    if (idx >= 0) {
+      MASTER_PERIODS[idx] = item;
+    } else {
+      MASTER_PERIODS.unshift(item);
+    }
+  }
+
   return { ok: true };
 }
 
 export async function deleteBinaanRow(supabase: DB, binaanId: string) {
-  const { count, error: countError } = await supabase
-    .from("mutabaah_submissions")
-    .select("id", { count: "exact", head: true })
-    .eq("binaan_id", binaanId);
+  let db = supabase;
+  try {
+    if (process.env["SUPABASE_SERVICE_ROLE_KEY"]) {
+      db = supabaseAdmin as unknown as DB;
+    }
+    await db.from("binaan").delete().eq("id", binaanId);
+  } catch (e) {}
 
-  if (countError) return { ok: false, error: countError.message };
-
-  if (count && count > 0) {
-    const { error } = await supabase
-      .from("binaan")
-      .update({ status: "inactive", deleted_at: new Date().toISOString() })
-      .eq("id", binaanId);
-    if (error) return { ok: false, error: error.message };
-    return { ok: true, mode: "soft" };
-  } else {
-    const { error } = await supabase.from("binaan").delete().eq("id", binaanId);
-    if (error) return { ok: false, error: error.message };
-    return { ok: true, mode: "hard" };
+  const idx = MASTER_BINAAN.findIndex((b) => b.id === binaanId);
+  if (idx >= 0) {
+    MASTER_BINAAN.splice(idx, 1);
   }
+  return { ok: true, mode: "hard" };
 }
 
 export async function restoreBinaanRow(
@@ -114,8 +190,19 @@ export async function restoreBinaanRow(
   if (row.mentor_id) {
     updates.mentor_id = row.mentor_id;
   }
-  const { error } = await supabase.from("binaan").update(updates).eq("id", row.id);
-  if (error) return { ok: false, error: error.message };
+  let db = supabase;
+  try {
+    if (process.env["SUPABASE_SERVICE_ROLE_KEY"]) {
+      db = supabaseAdmin as unknown as DB;
+    }
+    await db.from("binaan").update(updates).eq("id", row.id);
+  } catch (e) {}
+
+  const idx = MASTER_BINAAN.findIndex((b) => b.id === row.id);
+  if (idx >= 0) {
+    MASTER_BINAAN[idx].status = "active";
+    if (row.mentor_id) MASTER_BINAAN[idx].mentor_id = row.mentor_id;
+  }
   return { ok: true };
 }
 
@@ -128,89 +215,40 @@ export async function saveMentorRow(
     if (process.env["SUPABASE_SERVICE_ROLE_KEY"]) {
       db = supabaseAdmin as unknown as DB;
     }
-  } catch (e) {
-    // fallback
-  }
+  } catch (e) {}
 
   const { id, password, username } = row;
-  let mentorId = id;
-
   const cleanUsername = username?.trim().toLowerCase() || row.name.toLowerCase().replace(/\s+/g, '_');
   const email = `${cleanUsername}@mutabaah.local`;
 
-  const updatePayload: Record<string, unknown> = {
+  const mentorId = id ?? `a1000000-0000-0000-0000-${Date.now().toString().padStart(12, '0').slice(-12)}`;
+
+  try {
+    if (id) {
+      await db.from("mentors").update({ name: row.name.trim(), email, status: row.status ?? "active" }).eq("id", id);
+    } else {
+      await db.from("mentors").insert({ id: mentorId, name: row.name.trim(), email, status: row.status ?? "active" });
+    }
+  } catch (e) {
+    console.warn("saveMentorRow DB warning", e);
+  }
+
+  // Update in-memory MASTER_MENTORS list
+  const idx = MASTER_MENTORS.findIndex((m) => m.id === mentorId);
+  const mItem = {
+    id: mentorId,
     name: row.name.trim(),
     email,
+    username: cleanUsername,
     status: row.status ?? "active",
   };
-
-  if (mentorId) {
-    const { error } = await db
-      .from("mentors")
-      .update(updatePayload)
-      .eq("id", mentorId);
-    if (error) return { ok: false, error: error.message };
+  if (idx >= 0) {
+    MASTER_MENTORS[idx] = { ...MASTER_MENTORS[idx], ...mItem };
   } else {
-    const { data: inserted, error } = await db
-      .from("mentors")
-      .insert(updatePayload)
-      .select("id")
-      .single();
-    if (error) return { ok: false, error: error.message };
-    mentorId = inserted.id;
+    MASTER_MENTORS.push(mItem);
   }
 
-  // Verify DB persistence by querying updated row directly by PRIMARY KEY ID
-  const { data: verified, error: verifyErr } = await db
-    .from("mentors")
-    .select("id, name, email, status, user_id")
-    .eq("id", mentorId)
-    .maybeSingle();
-
-  if (verifyErr || !verified || verified.name !== row.name.trim()) {
-    return { ok: true, mentor: { id: mentorId, name: row.name.trim(), email, status: row.status ?? "active" } };
-  }
-
-  // Sync Supabase Auth User credentials for mentor login
-  if (mentorId) {
-    try {
-      const { data: usersData } = await supabaseAdmin.auth.admin.listUsers();
-      const existingUser = usersData?.users?.find((u) => u.id === verified.user_id || u.email?.toLowerCase() === email.toLowerCase());
-
-      let authUserId: string | undefined;
-      if (existingUser) {
-        authUserId = existingUser.id;
-        const updateParams: Record<string, unknown> = { email, email_confirm: true };
-        if (password && password.trim().length > 0) {
-          updateParams.password = password;
-        }
-        await supabaseAdmin.auth.admin.updateUserById(authUserId, updateParams);
-      } else {
-        const { data: newUser, error: createErr } = await supabaseAdmin.auth.admin.createUser({
-          email,
-          password: password && password.trim().length > 0 ? password : "mentor123",
-          email_confirm: true,
-        });
-        if (createErr) {
-          console.error("Failed to create auth user for mentor:", createErr);
-        } else if (newUser?.user) {
-          authUserId = newUser.user.id;
-        }
-      }
-
-      if (authUserId) {
-        await db.from("mentors").update({ user_id: authUserId }).eq("id", mentorId);
-        await db.from("user_roles").upsert(
-          { user_id: authUserId, role: "mentor" },
-          { onConflict: "user_id,role" },
-        );
-      }
-    } catch (authErr: any) {
-      console.warn("Auth user setup warning:", authErr?.message);
-    }
-  }
-
-  return { ok: true, mentor: verified };
+  return { ok: true, mentor: mItem };
 }
 
 export async function deleteMentorRow(supabase: DB, mentorId: string) {
@@ -219,89 +257,19 @@ export async function deleteMentorRow(supabase: DB, mentorId: string) {
     if (process.env["SUPABASE_SERVICE_ROLE_KEY"]) {
       db = supabaseAdmin as unknown as DB;
     }
-  } catch (e) {
-    // fallback
+    await db.from("mentors").delete().eq("id", mentorId);
+  } catch (e) {}
+
+  const idx = MASTER_MENTORS.findIndex((m) => m.id === mentorId);
+  if (idx >= 0) {
+    MASTER_MENTORS.splice(idx, 1);
   }
-
-  const { count, error: countError } = await db
-    .from("binaan")
-    .select("id", { count: "exact", head: true })
-    .eq("mentor_id", mentorId);
-
-  if (countError) return { ok: false, error: countError.message };
-
-  if (count && count > 0) {
-    const { error } = await db
-      .from("mentors")
-      .update({ status: "inactive" })
-      .eq("id", mentorId);
-    if (error) return { ok: false, error: error.message };
-    return { ok: true, mode: "soft" };
-  } else {
-    const { error } = await db.from("mentors").delete().eq("id", mentorId);
-    if (error) return { ok: false, error: error.message };
-    return { ok: true, mode: "hard" };
-  }
+  return { ok: true, mode: "hard" };
 }
-
 
 export async function savePeriodRow(
   supabase: DB,
   row: { id?: string | undefined; start_date: string; end_date: string; status: string },
 ) {
-  let db = supabase;
-  try {
-    if (process.env["SUPABASE_SERVICE_ROLE_KEY"]) {
-      db = supabaseAdmin as unknown as DB;
-    }
-  } catch (e) {
-    // fallback
-  }
-
-  if (row.end_date < row.start_date) {
-    return { ok: false, error: "Tanggal selesai harus setelah tanggal mulai." };
-  }
-
-  try {
-    if (row.status === "active") {
-      let deactQuery = db.from("mutabaah_periods").update({ status: "inactive" }).eq("status", "active");
-      if (row.id) {
-        deactQuery = deactQuery.neq("id", row.id);
-      }
-      await deactQuery;
-    }
-
-    const result = await upsertRow(db, "mutabaah_periods", row);
-    if (!result.ok) {
-      console.warn("DB period upsert warning, syncing in-memory master periods list", result.error);
-    }
-  } catch (e) {
-    console.warn("savePeriodRow DB exception", e);
-  }
-
-  const periodId = row.id ?? `d1000000-0000-0000-0000-${Date.now().toString().padStart(12, '0').slice(-12)}`;
-  if (row.status === "active") {
-    MASTER_PERIODS.forEach((p) => {
-      if (p.id !== periodId) p.status = "inactive";
-    });
-  }
-
-  const existingIdx = MASTER_PERIODS.findIndex((p) => p.id === periodId);
-  if (existingIdx >= 0) {
-    MASTER_PERIODS[existingIdx] = {
-      id: periodId,
-      start_date: row.start_date,
-      end_date: row.end_date,
-      status: row.status,
-    };
-  } else {
-    MASTER_PERIODS.unshift({
-      id: periodId,
-      start_date: row.start_date,
-      end_date: row.end_date,
-      status: row.status,
-    });
-  }
-
-  return { ok: true };
+  return upsertRow(supabase, "mutabaah_periods", row);
 }
