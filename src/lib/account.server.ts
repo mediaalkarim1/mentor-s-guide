@@ -1,4 +1,5 @@
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
+import { MASTER_MENTORS } from "./master-data";
 
 export type AccountContext = {
   userId: string;
@@ -25,18 +26,35 @@ export async function ensureUserRole(userId: string, role: string) {
 }
 
 /**
- * Resolves the signed-in user's role. Guarantees admin authorization for signed-in admin users,
- * and links accounts whose email/username matches a registered mentor.
+ * Resolves the signed-in user's role. Strictly isolates Admin vs Mentor permissions.
  */
 export async function resolveAccount(userId: string, email: string | null): Promise<AccountContext> {
-  const normalized = email?.toLowerCase().trim() ?? null;
+  const normalized = email?.toLowerCase().trim() ?? "";
 
   // Fetch current roles from user_roles
   const { data: roles } = await supabaseAdmin.from("user_roles").select("role").eq("user_id", userId);
-  let roleList = (roles ?? []).map((r) => String(r.role).toLowerCase().trim());
+  const roleList = (roles ?? []).map((r) => String(r.role).toLowerCase().trim());
 
-  // Check if user is linked to a mentor by email or user_id
+  // Strictly check if user is Admin by email/username or explicit admin role
+  const isAdmin =
+    roleList.includes("admin") ||
+    normalized.startsWith("admin") ||
+    normalized === "admin@mutabaah.sch.id" ||
+    normalized === "admin@mutabaah.local";
+
+  if (isAdmin) {
+    await ensureUserRole(userId, "admin");
+    return {
+      userId,
+      email: normalized,
+      isAdmin: true,
+      mentor: null,
+    };
+  }
+
+  // Resolve Mentor account
   let mentor: { id: string; name: string } | null = null;
+
   if (normalized) {
     const { data: mentorRow } = await supabaseAdmin
       .from("mentors")
@@ -61,21 +79,24 @@ export async function resolveAccount(userId: string, email: string | null): Prom
     if (linked) mentor = { id: linked.id, name: linked.name };
   }
 
-  // Determine if user is Admin:
-  let isAdmin =
-    roleList.includes("admin") ||
-    !mentor ||
-    (normalized ? normalized.includes("admin") : false) ||
-    normalized === "admin@mutabaah.sch.id";
-
-  if (isAdmin) {
-    await ensureUserRole(userId, "admin");
+  // Fallback to MASTER_MENTORS if not yet linked in DB
+  if (!mentor && normalized) {
+    const userSlug = normalized.split("@")[0].replace(/[^a-z0-9]/g, "");
+    const matchedMaster = MASTER_MENTORS.find((m) => {
+      const mSlug = m.name.toLowerCase().replace(/[^a-z0-9]/g, "");
+      return mSlug.includes(userSlug) || userSlug.includes(mSlug);
+    });
+    if (matchedMaster) {
+      mentor = { id: matchedMaster.id, name: matchedMaster.name };
+    }
   }
+
+  await ensureUserRole(userId, "mentor");
 
   return {
     userId,
     email: normalized,
-    isAdmin,
+    isAdmin: false,
     mentor,
   };
 }

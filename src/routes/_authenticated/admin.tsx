@@ -1,10 +1,12 @@
-import { useState } from "react";
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { useEffect, useState } from "react";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { Loader2, Users, CheckCircle2, AlertCircle, Award } from "lucide-react";
 import { toast } from "sonner";
 
+import { useAuth } from "@/components/AuthProvider";
+import { getMyAccount } from "@/lib/recap.functions";
 import {
   deleteBinaan,
   deleteMentor,
@@ -21,37 +23,6 @@ import {
   resetMentorRecap,
   saveMentorRecapOverride,
 } from "@/lib/recap.functions";
-import { formatDisplayScore, formatPeriod } from "@/lib/mutabaah-config";
-import { ScoreBadge } from "@/components/ScoreBadge";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from "@/components/ui/dialog";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
 
 export const Route = createFileRoute("/_authenticated/admin")({
   head: () => ({
@@ -67,6 +38,23 @@ export const Route = createFileRoute("/_authenticated/admin")({
 
 function AdminPage() {
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
+  const { session } = useAuth();
+  const fetchAccount = useServerFn(getMyAccount);
+
+  const { data: accountData, isLoading: isAccountLoading } = useQuery({
+    queryKey: ["my-account", session?.user?.id],
+    queryFn: () => fetchAccount(),
+    enabled: Boolean(session),
+  });
+
+  useEffect(() => {
+    if (!isAccountLoading && accountData && !accountData.isAdmin) {
+      toast.error("Akses ditolak. Halaman Admin hanya untuk Admin Utama.");
+      navigate({ to: "/dashboard", replace: true });
+    }
+  }, [accountData, isAccountLoading, navigate]);
+
   const fetchDashboard = useServerFn(getAdminDashboard);
   const fetchData = useServerFn(getAdminData);
   const saveOverrideFn = useServerFn(saveMentorRecapOverride);

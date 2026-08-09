@@ -38,7 +38,12 @@ function LoginPage() {
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
       if (data.session) {
-        navigate({ to: "/dashboard", replace: true });
+        const email = data.session.user.email?.toLowerCase() ?? "";
+        if (email.startsWith("admin")) {
+          navigate({ to: "/admin", replace: true });
+        } else {
+          navigate({ to: "/dashboard", replace: true });
+        }
       }
     });
   }, [navigate]);
