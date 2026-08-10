@@ -30,18 +30,29 @@ function createSupabaseClient() {
   const metaEnv = typeof import.meta !== 'undefined' && import.meta.env ? import.meta.env : ({} as Record<string, string>);
   const procEnv = typeof process !== 'undefined' && process.env ? process.env : ({} as Record<string, string>);
 
+  let cfEnv: Record<string, string> = {};
+  try {
+    cfEnv = (globalThis as any).__rlsEnvCache || (globalThis as any).__cf_env || {};
+  } catch (_) {}
+
+  const gThis = typeof globalThis !== 'undefined' ? (globalThis as any) : {};
+
   const SUPABASE_URL =
-    metaEnv['VITE_SUPABASE_URL'] ||
-    procEnv['VITE_SUPABASE_URL'] ||
-    metaEnv['SUPABASE_URL'] ||
     procEnv['SUPABASE_URL'] ||
+    procEnv['VITE_SUPABASE_URL'] ||
+    gThis['SUPABASE_URL'] ||
+    cfEnv['SUPABASE_URL'] ||
+    metaEnv['VITE_SUPABASE_URL'] ||
+    metaEnv['SUPABASE_URL'] ||
     'https://mvbmkbkgjmvyvadhqbvu.supabase.co';
 
   const SUPABASE_PUBLISHABLE_KEY =
-    metaEnv['VITE_SUPABASE_PUBLISHABLE_KEY'] ||
-    procEnv['VITE_SUPABASE_PUBLISHABLE_KEY'] ||
-    metaEnv['SUPABASE_PUBLISHABLE_KEY'] ||
     procEnv['SUPABASE_PUBLISHABLE_KEY'] ||
+    procEnv['VITE_SUPABASE_PUBLISHABLE_KEY'] ||
+    gThis['SUPABASE_PUBLISHABLE_KEY'] ||
+    cfEnv['SUPABASE_PUBLISHABLE_KEY'] ||
+    metaEnv['VITE_SUPABASE_PUBLISHABLE_KEY'] ||
+    metaEnv['SUPABASE_PUBLISHABLE_KEY'] ||
     'sb_publishable_ygKD2Pijsuxbh9K6kdmYjg_OC_3gykK';
 
   return createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
