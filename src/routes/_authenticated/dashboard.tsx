@@ -7,7 +7,6 @@ import { Download, Loader2, Users, CheckCircle2, AlertCircle, Calendar } from "l
 import { getExportRows, getMentorRecap } from "@/lib/recap.functions";
 import { getAdminData } from "@/lib/admin.functions";
 import { formatDisplayScore, formatPeriod } from "@/lib/mutabaah-config";
-import { getClientMasterStore, type MasterClientStore } from "@/lib/master_store_client";
 import { ScoreBadge } from "@/components/ScoreBadge";
 import { Button } from "@/components/ui/button";
 import { downloadCsv } from "@/lib/export";
@@ -37,16 +36,6 @@ function DashboardPage() {
   const fetchExport = useServerFn(getExportRows);
   const [periodId, setPeriodId] = useState<string | undefined>(undefined);
   const [mentorId, setMentorId] = useState<string | undefined>(undefined);
-
-  const [clientStore, setClientStore] = useState<MasterClientStore>(() => getClientMasterStore());
-
-  useEffect(() => {
-    const handleUpdate = () => {
-      setClientStore(getClientMasterStore());
-    };
-    window.addEventListener("mutabaah_master_store_updated", handleUpdate);
-    return () => window.removeEventListener("mutabaah_master_store_updated", handleUpdate);
-  }, []);
 
   const { data, isLoading } = useQuery({
     queryKey: ["mentor-recap", periodId, mentorId],
@@ -81,54 +70,10 @@ function DashboardPage() {
 
   const recap = data?.recap;
 
-  const uniqueRows = useMemo(() => {
-    const activeMentorId = (isAdmin && mentorId) ? mentorId : (data?.account.mentor?.id);
-    if (!recap?.rows && !activeMentorId) return [];
-
-    const map = new Map<string, any>();
-
-    // 1. First populate binaans for active mentor from clientStore (reflecting Admin additions/updates)
-    if (activeMentorId) {
-      const storeBinaans = (clientStore.binaan ?? []).filter(
-        (b: any) => b.mentor_id === activeMentorId && (b.status === "active" || !b.status),
-      );
-      storeBinaans.forEach((b: any) => {
-        const key = (b.name || "").toLowerCase().trim();
-        if (key && !map.has(key)) {
-          map.set(key, {
-            binaanId: b.id,
-            name: b.name,
-            filled: false,
-            scores: {},
-            total: 0,
-          });
-        }
-      });
-    }
-
-    // 2. Merge server recap rows matching by normalized name key
-    (recap?.rows ?? []).forEach((row: any) => {
-      const key = (row.name || "").toLowerCase().trim();
-      if (!key) return;
-
-      const existing = map.get(key);
-      if (existing) {
-        // Update existing item with submitted scores and totals if server row has submitted entry
-        map.set(key, {
-          ...existing,
-          binaanId: row.binaanId || existing.binaanId,
-          filled: row.filled || existing.filled,
-          scores: row.filled ? row.scores : existing.scores,
-          total: row.filled ? row.total : existing.total,
-        });
-      } else {
-        // If not in clientStore map, add server row
-        map.set(key, row);
-      }
-    });
-
-    return Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name));
-  }, [recap?.rows, clientStore.binaan, isAdmin, mentorId, data?.account.mentor?.id]);
+  const uniqueRows = useMemo(
+    () => [...((recap?.rows ?? []) as any[])].sort((x, y) => x.name.localeCompare(y.name)),
+    [recap?.rows],
+  );
 
   if (isLoading) {
     return (
