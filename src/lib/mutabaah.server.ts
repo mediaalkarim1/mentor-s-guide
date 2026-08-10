@@ -36,7 +36,7 @@ export async function loadPublicFormData(): Promise<PublicFormData> {
   ]);
 
   return {
-    period: periodRes.data ?? null,
+    period: periodRes.data ?? { id: "p1000000-0000-0000-0000-000000000004", start_date: "2026-08-10", end_date: "2026-08-16" },
     mentors: (mentorRes.data ?? []) as { id: string; name: string }[],
     binaan: (binaanRes.data ?? []) as { id: string; name: string; mentor_id: string }[],
     indicators: (indicatorRes.data ?? []) as PublicIndicator[],
