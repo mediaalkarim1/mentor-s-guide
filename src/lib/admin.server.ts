@@ -26,6 +26,25 @@ const MASTER_MENTORS_LIST = [
   { id: "a1000000-0000-0000-0000-000000000010", name: "Umi Tiwi", username: "umi_tiwi", email: "umi_tiwi@mutabaah.local", status: "active", user_id: null },
 ];
 
+const MASTER_PERIODS_LIST = [
+  { id: "p1000000-0000-0000-0000-000000000004", start_date: "2026-08-10", end_date: "2026-08-16", status: "active" },
+  { id: "p1000000-0000-0000-0000-000000000003", start_date: "2026-08-03", end_date: "2026-08-09", status: "closed" },
+  { id: "p1000000-0000-0000-0000-000000000002", start_date: "2026-07-27", end_date: "2026-08-02", status: "closed" },
+  { id: "p1000000-0000-0000-0000-000000000001", start_date: "2026-07-20", end_date: "2026-07-26", status: "closed" },
+];
+
+const MASTER_INDICATORS_LIST = [
+  { id: "i1000000-0000-0000-0000-000000000001", code: "THJ", name: "Sholat Tahajud", target: 7, unit: "Kali", order_number: 1, active: true },
+  { id: "i1000000-0000-0000-0000-000000000002", code: "WTR", name: "Sholat Witir", target: 7, unit: "Kali", order_number: 2, active: true },
+  { id: "i1000000-0000-0000-0000-000000000003", code: "DHU", name: "Sholat Dhuha", target: 7, unit: "Kali", order_number: 3, active: true },
+  { id: "i1000000-0000-0000-0000-000000000004", code: "RWB", name: "Sholat Sunnah Rawatib", target: 7, unit: "Kali", order_number: 4, active: true },
+  { id: "i1000000-0000-0000-0000-000000000005", code: "MTS", name: "Al-Matsurat (Pagi/Petang)", target: 14, unit: "Kali", order_number: 5, active: true },
+  { id: "i1000000-0000-0000-0000-000000000006", code: "TLW", name: "Tilawah Al-Qur'an", target: 7, unit: "Lembar", order_number: 6, active: true },
+  { id: "i1000000-0000-0000-0000-000000000007", code: "HFZ", name: "Hifdzul Qur'an (Muraja'ah/Ziyadah)", target: 7, unit: "Halaman", order_number: 7, active: true },
+  { id: "i1000000-0000-0000-0000-000000000008", code: "PSA", name: "Puasa Sunnah (Senin/Kamis/Ayyamul Bidh)", target: 2, unit: "Hari", order_number: 8, active: true },
+  { id: "i1000000-0000-0000-0000-000000000009", code: "KDM", name: "Khidmah / Berbakti / Pelayanan Sosial", target: 7, unit: "Kali", order_number: 9, active: true },
+];
+
 export async function loadAdminData() {
   const [mRes, bRes, iRes, pRes] = await Promise.all([
     supabaseAdmin.from("mentors").select("id, name, username, email, status, user_id").order("name"),
@@ -50,11 +69,9 @@ export async function loadAdminData() {
 
   return {
     mentors,
-    binaan: bRes.data ?? [],
-    indicators: iRes.data ?? [],
-    periods: (pRes.data && pRes.data.length > 0) ? pRes.data : [
-      { id: "p1000000-0000-0000-0000-000000000004", start_date: "2026-08-10", end_date: "2026-08-16", status: "active" }
-    ],
+    binaan: (bRes.data && bRes.data.length > 0) ? bRes.data : [],
+    indicators: (iRes.data && iRes.data.length > 0) ? iRes.data : MASTER_INDICATORS_LIST,
+    periods: (pRes.data && pRes.data.length > 0) ? pRes.data : MASTER_PERIODS_LIST,
   };
 }
 
