@@ -169,105 +169,150 @@ function MonthlyPage() {
 
       {/* Main Table: Binaan Monthly Recap */}
       {viewMode === "binaan" ? (
-        <div className="surface-card overflow-hidden border border-[#DCE9E1] rounded-2xl bg-white">
-          <div className="border-b border-[#DCE9E1] bg-[#EAF4EE] px-4 py-3 sm:px-5 flex justify-between items-center">
-            <div>
-              <h2 className="text-sm sm:text-base font-bold text-[#173C32]">
-                Progres Mutabaah Bulanan Binaan
-              </h2>
-              <p className="text-xs text-[#52635C]">
-                Klik nama Binaan untuk melihat rincian pekanan & evaluasi indikator.
-              </p>
+        <div className="space-y-5">
+          <div className="surface-card overflow-hidden border border-[#DCE9E1] rounded-2xl bg-white">
+            <div className="border-b border-[#DCE9E1] bg-[#EAF4EE] px-4 py-3 sm:px-5 flex justify-between items-center">
+              <div>
+                <h2 className="text-sm sm:text-base font-bold text-[#173C32]">
+                  Progres Mutabaah Bulanan Binaan
+                </h2>
+                <p className="text-xs text-[#52635C]">
+                  Klik nama Binaan untuk melihat rincian pekanan & evaluasi indikator.
+                </p>
+              </div>
+              <span className="text-xs font-semibold text-[#006B54] bg-white px-2.5 py-1 rounded-full border border-[#DCE9E1]">
+                {data.rows.length} Binaan
+              </span>
             </div>
-            <span className="text-xs font-semibold text-[#006B54] bg-white px-2.5 py-1 rounded-full border border-[#DCE9E1]">
-              {data.rows.length} Binaan
-            </span>
+
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[42rem] text-sm">
+                <thead className="bg-[#EAF4EE]/60 text-left text-xs uppercase tracking-wide text-[#245347]">
+                  <tr>
+                    <th className="px-4 py-3 w-12 text-center">No</th>
+                    <th className="px-4 py-3">Nama Binaan</th>
+                    {data.periods.map((p, i) => (
+                      <th key={p.id} className="px-3 py-3 text-center">
+                        Pekan {i + 1}
+                        <span className="block text-[10px] font-normal normal-case text-[#52635C]">
+                          {formatPeriod(p.start_date, p.end_date)}
+                        </span>
+                      </th>
+                    ))}
+                    <th className="px-4 py-3 text-center">Rata-rata Bulanan</th>
+                    <th className="px-4 py-3">Status Predikat</th>
+                    <th className="px-3 py-3 text-center">Aksi</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[#DCE9E1]">
+                  {data.rows.map((row, index) => (
+                    <tr
+                      key={row.binaanId}
+                      className="hover:bg-[#F5FAF7] transition-colors cursor-pointer"
+                      onClick={() => setSelectedBinaanId(row.binaanId)}
+                    >
+                      <td className="px-4 py-3 text-center text-xs text-[#52635C] tabular-nums">
+                        {index + 1}
+                      </td>
+                      <td className="px-4 py-3 font-semibold text-[#173C32]">
+                        <button
+                          type="button"
+                          className="text-[#006B54] hover:underline font-bold text-left cursor-pointer flex items-center gap-1"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setSelectedBinaanId(row.binaanId);
+                          }}
+                        >
+                          <span>{row.binaanName}</span>
+                        </button>
+                      </td>
+                      {row.weeklyScores.map((score, i) => (
+                        <td
+                          key={i}
+                          className="px-3 py-3 text-center tabular-nums text-xs text-[#52635C]"
+                        >
+                          {score === null ? (
+                            <span className="text-[#A3B8AD]">–</span>
+                          ) : (
+                            <span className="font-semibold text-[#173C32]">
+                              {formatDisplayScore(score)}
+                            </span>
+                          )}
+                        </td>
+                      ))}
+                      <td className="px-4 py-3 text-center font-bold tabular-nums text-base text-[#006B54]">
+                        {formatDisplayScore(row.monthlyAverage)}
+                      </td>
+                      <td className="px-4 py-3">
+                        <ScoreBadge score={row.monthlyAverage} />
+                      </td>
+                      <td className="px-3 py-3 text-center">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 w-7 p-0 text-[#006B54] hover:bg-[#EAF4EE]"
+                        >
+                          <ChevronRight className="h-4 w-4" />
+                        </Button>
+                      </td>
+                    </tr>
+                  ))}
+                  {data.rows.length === 0 && (
+                    <tr>
+                      <td
+                        colSpan={data.periods.length + 4}
+                        className="px-4 py-8 text-center text-xs text-[#52635C]"
+                      >
+                        Belum ada data bulanan untuk Binaan Anda.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
 
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[42rem] text-sm">
-              <thead className="bg-[#EAF4EE]/60 text-left text-xs uppercase tracking-wide text-[#245347]">
-                <tr>
-                  <th className="px-4 py-3 w-12 text-center">No</th>
-                  <th className="px-4 py-3">Nama Binaan</th>
-                  {data.periods.map((p, i) => (
-                    <th key={p.id} className="px-3 py-3 text-center">
-                      Pekan {i + 1}
-                      <span className="block text-[10px] font-normal normal-case text-[#52635C]">
-                        {formatPeriod(p.start_date, p.end_date)}
-                      </span>
-                    </th>
-                  ))}
-                  <th className="px-4 py-3 text-center">Rata-rata Bulanan</th>
-                  <th className="px-4 py-3">Status Predikat</th>
-                  <th className="px-3 py-3 text-center">Aksi</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-[#DCE9E1]">
-                {data.rows.map((row, index) => (
-                  <tr
-                    key={row.binaanId}
-                    className="hover:bg-[#F5FAF7] transition-colors cursor-pointer"
-                    onClick={() => setSelectedBinaanId(row.binaanId)}
-                  >
-                    <td className="px-4 py-3 text-center text-xs text-[#52635C] tabular-nums">
-                      {index + 1}
-                    </td>
-                    <td className="px-4 py-3 font-semibold text-[#173C32]">
-                      <button
-                        type="button"
-                        className="text-[#006B54] hover:underline font-bold text-left cursor-pointer flex items-center gap-1"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setSelectedBinaanId(row.binaanId);
-                        }}
-                      >
-                        <span>{row.binaanName}</span>
-                      </button>
-                    </td>
-                    {row.weeklyScores.map((score, i) => (
-                      <td
-                        key={i}
-                        className="px-3 py-3 text-center tabular-nums text-xs text-[#52635C]"
-                      >
-                        {score === null ? (
-                          <span className="text-[#A3B8AD]">–</span>
-                        ) : (
-                          <span className="font-semibold text-[#173C32]">
-                            {formatDisplayScore(score)}
-                          </span>
-                        )}
-                      </td>
-                    ))}
-                    <td className="px-4 py-3 text-center font-bold tabular-nums text-base text-[#006B54]">
-                      {formatDisplayScore(row.monthlyAverage)}
-                    </td>
-                    <td className="px-4 py-3">
-                      <ScoreBadge score={row.monthlyAverage} />
-                    </td>
-                    <td className="px-3 py-3 text-center">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-7 w-7 p-0 text-[#006B54] hover:bg-[#EAF4EE]"
-                      >
-                        <ChevronRight className="h-4 w-4" />
-                      </Button>
-                    </td>
-                  </tr>
-                ))}
-                {data.rows.length === 0 && (
+          {/* Section: Rekap Kehadiran Mentoring Bulanan */}
+          <div className="surface-card overflow-hidden border border-[#DCE9E1] rounded-2xl bg-white p-4 sm:p-5 space-y-3">
+            <div className="flex items-center gap-2 border-b border-[#DCE9E1] pb-3">
+              <UserCheck className="h-5 w-5 text-[#006B54]" />
+              <div>
+                <h2 className="text-base font-bold text-[#173C32]">Rekap Kehadiran Mentoring Bulanan</h2>
+                <p className="text-xs text-[#52635C]">Statistik kehadiran mentoring bulan {data.month || "ini"}</p>
+              </div>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[36rem] text-sm">
+                <thead className="bg-[#EAF4EE] text-left text-xs uppercase tracking-wide text-[#245347]">
                   <tr>
-                    <td
-                      colSpan={data.periods.length + 4}
-                      className="px-4 py-8 text-center text-xs text-[#52635C]"
-                    >
-                      Belum ada data binaan untuk mentor ini pada bulan yang dipilih.
-                    </td>
+                    <th className="px-3.5 py-3">Binaan</th>
+                    <th className="px-3.5 py-3 text-center">Hadir</th>
+                    <th className="px-3.5 py-3 text-center">Tidak Hadir</th>
+                    <th className="px-3.5 py-3 text-center">Persentase Kehadiran</th>
                   </tr>
-                )}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="divide-y divide-[#DCE9E1]">
+                  {(data.attendanceStats ?? []).map((stat) => (
+                    <tr key={stat.binaanId} className="hover:bg-[#F5FAF7]">
+                      <td className="px-3.5 py-3 font-semibold text-[#173C32]">{stat.binaanName}</td>
+                      <td className="px-3.5 py-3 text-center font-semibold text-emerald-700">{stat.hadirCount}</td>
+                      <td className="px-3.5 py-3 text-center font-semibold text-rose-700">{stat.tidakHadirCount}</td>
+                      <td className="px-3.5 py-3 text-center font-bold text-[#006B54]">
+                        {stat.percentage}%
+                      </td>
+                    </tr>
+                  ))}
+                  {(data.attendanceStats ?? []).length === 0 && (
+                    <tr>
+                      <td colSpan={4} className="px-3 py-6 text-center text-xs text-[#52635C]">
+                        Belum ada data kehadiran mentoring untuk bulan ini.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
       ) : (

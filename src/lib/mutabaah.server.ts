@@ -43,10 +43,15 @@ export async function loadPublicFormData(): Promise<PublicFormData> {
   };
 }
 
+import { UZUR_VALUE } from "./mutabaah-config";
+
 export type SubmitPayload = {
   binaanId: string;
   mentorId: string;
-  entries: { indicatorId: string; realization: number }[];
+  entries: { indicatorId: string; realization: number; isUzur?: boolean }[];
+  attendanceStatus?: "hadir" | "tidak_hadir";
+  mentoringDate?: string;
+  attendanceNote?: string;
 };
 
 export type SubmitResult =
@@ -116,19 +121,30 @@ export async function submitMutabaahRecord(payload: SubmitPayload): Promise<Subm
     .filter((e) => byId.has(e.indicatorId))
     .map((e) => {
       const target = byId.get(e.indicatorId)!;
-      const realization = Math.max(0, Number(e.realization));
+      const isUzur = Boolean(e.isUzur || e.realization === UZUR_VALUE);
+      const realization = isUzur ? 0 : Math.max(0, Number(e.realization));
+      const achievement = isUzur ? 0 : scoreFor(realization, target);
       return {
         indicator_id: e.indicatorId,
         target,
         realization,
-        achievement_percentage: scoreFor(realization, target),
+        achievement_percentage: achievement,
+        is_uzur: isUzur,
       };
     });
 
+  // Rules: UZUR is EXCLUDED from average score calculation
+  const assessed = scored.filter((s) => !s.is_uzur);
   const totalScore =
-    Math.round((scored.reduce((sum, s) => sum + s.achievement_percentage, 0) / scored.length) * 100) / 100;
+    assessed.length > 0
+      ? Math.round((assessed.reduce((sum, s) => sum + s.achievement_percentage, 0) / assessed.length) * 100) / 100
+      : 0;
 
-  const { data: submission, error: submissionError } = await supabaseAdmin
+  const attendanceStatus = payload.attendanceStatus === "tidak_hadir" ? "tidak_hadir" : "hadir";
+  const mentoringDate = payload.mentoringDate || new Date().toISOString().split("T")[0];
+  const attendanceNote = payload.attendanceNote?.trim() || null;
+
+  let submissionRes = await supabaseAdmin
     .from("mutabaah_submissions")
     .upsert(
       {
@@ -137,11 +153,33 @@ export async function submitMutabaahRecord(payload: SubmitPayload): Promise<Subm
         period_id: period.id,
         total_score: totalScore,
         status: "submitted",
-      },
+        attendance_status: attendanceStatus,
+        mentoring_date: mentoringDate,
+        attendance_note: attendanceNote,
+      } as any,
       { onConflict: "binaan_id,period_id" },
     )
     .select("id")
     .single();
+
+  if (submissionRes.error && submissionRes.error.code === "42703") {
+    submissionRes = await supabaseAdmin
+      .from("mutabaah_submissions")
+      .upsert(
+        {
+          binaan_id: binaan.id,
+          mentor_id: mentor.id,
+          period_id: period.id,
+          total_score: totalScore,
+          status: "submitted",
+        },
+        { onConflict: "binaan_id,period_id" },
+      )
+      .select("id")
+      .single();
+  }
+
+  const { data: submission, error: submissionError } = submissionRes;
 
   if (submissionError || !submission?.id) {
     console.error("submitMutabaahRecord error:", submissionError);
@@ -149,12 +187,27 @@ export async function submitMutabaahRecord(payload: SubmitPayload): Promise<Subm
   }
 
   await supabaseAdmin.from("mutabaah_entries").delete().eq("submission_id", submission.id);
-  const { error: entriesError } = await supabaseAdmin
+
+  let entriesRes = await supabaseAdmin
     .from("mutabaah_entries")
     .insert(scored.map((s) => ({ ...s, submission_id: submission.id })));
 
-  if (entriesError) {
-    console.error("submitMutabaahRecord entries error:", entriesError);
+  if (entriesRes.error && entriesRes.error.code === "42703") {
+    entriesRes = await supabaseAdmin
+      .from("mutabaah_entries")
+      .insert(
+        scored.map((s) => ({
+          submission_id: submission.id,
+          indicator_id: s.indicator_id,
+          target: s.target,
+          realization: s.realization,
+          achievement_percentage: s.achievement_percentage,
+        })),
+      );
+  }
+
+  if (entriesRes.error) {
+    console.error("submitMutabaahRecord entries error:", entriesRes.error);
     return { ok: false, error: "Gagal menyimpan rincian indikator. Silakan coba lagi." };
   }
 

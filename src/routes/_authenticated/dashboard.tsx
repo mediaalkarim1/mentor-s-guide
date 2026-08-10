@@ -1,10 +1,11 @@
 import { useMemo, useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { Download, Loader2, Users, CheckCircle2, AlertCircle, Calendar } from "lucide-react";
+import { Download, Loader2, Users, CheckCircle2, AlertCircle, Calendar, RotateCcw, UserCheck } from "lucide-react";
+import { toast } from "sonner";
 
-import { getExportRows, getMentorRecap } from "@/lib/recap.functions";
+import { getExportRows, getMentorRecap, resetBinaanSubmission } from "@/lib/recap.functions";
 import { getAdminData } from "@/lib/admin.functions";
 import { formatDisplayScore, formatPeriod } from "@/lib/mutabaah-config";
 import { ScoreBadge } from "@/components/ScoreBadge";
@@ -17,6 +18,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   head: () => ({
@@ -34,8 +45,12 @@ function DashboardPage() {
   const fetchRecap = useServerFn(getMentorRecap);
   const fetchAdmin = useServerFn(getAdminData);
   const fetchExport = useServerFn(getExportRows);
+  const resetBinaanFn = useServerFn(resetBinaanSubmission);
+  const queryClient = useQueryClient();
+
   const [periodId, setPeriodId] = useState<string | undefined>(undefined);
   const [mentorId, setMentorId] = useState<string | undefined>(undefined);
+  const [resetConfirmBinaan, setResetConfirmBinaan] = useState<{ id: string; name: string } | null>(null);
 
   const { data, isLoading } = useQuery({
     queryKey: ["mentor-recap", periodId, mentorId],
@@ -55,6 +70,29 @@ function DashboardPage() {
     enabled: isAdmin,
   });
 
+  const resetMutation = useMutation({
+    mutationFn: async (targetBinaanId: string) => {
+      const pid = recap?.period?.id;
+      if (!pid) throw new Error("Periode tidak ditemukan.");
+      return resetBinaanFn({ data: { binaanId: targetBinaanId, periodId: pid } });
+    },
+    onSuccess: (result) => {
+      if (result.ok) {
+        toast.success(`Pengisian mutabaah ${result.binaanName || ""} berhasil di-reset.`);
+        queryClient.invalidateQueries({ queryKey: ["mentor-recap"] });
+        queryClient.invalidateQueries({ queryKey: ["admin-dashboard"] });
+        queryClient.invalidateQueries({ queryKey: ["public-form-data"] });
+      } else {
+        toast.error(result.error || "Gagal melakukan reset pengisian.");
+      }
+      setResetConfirmBinaan(null);
+    },
+    onError: () => {
+      toast.error("Terjadi kesalahan saat mereset data.");
+      setResetConfirmBinaan(null);
+    },
+  });
+
   async function handleExport() {
     const rows = await fetchExport({ data: periodId ? { periodId } : {} });
     const header = ["Mentor", "Binaan", "Periode", ...(rows[0]?.scores.map((s) => s.name) ?? []), "Nilai"];
@@ -62,7 +100,7 @@ function DashboardPage() {
       r.mentor,
       r.binaan,
       r.period,
-      ...r.scores.map((s) => formatDisplayScore(s.score)),
+      ...r.scores.map((s) => (typeof s.score === "string" ? s.score : formatDisplayScore(s.score))),
       formatDisplayScore(r.total),
     ]);
     downloadCsv("rekap-mutabaah.csv", [header, ...body]);
@@ -175,10 +213,19 @@ function DashboardPage() {
         />
       </div>
 
-      {/* Table Container - Mobile Horizontal Scroll Isolated */}
-      <div className="surface-card overflow-hidden border border-[#DCE9E1] rounded-2xl bg-white">
+      {/* Table Container - Weekly Recap */}
+      <div className="surface-card overflow-hidden border border-[#DCE9E1] rounded-2xl bg-white space-y-2">
+        <div className="p-4 bg-[#F5FAF7] border-b border-[#DCE9E1] flex items-center justify-between">
+          <h2 className="text-sm font-bold text-[#173C32] uppercase tracking-wide">
+            Matriks Nilai Pekanan Binaan
+          </h2>
+          <span className="text-xs text-[#52635C] font-medium">
+            Periode Active: {recap.period ? formatPeriod(recap.period.start_date, recap.period.end_date) : "-"}
+          </span>
+        </div>
+
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[50rem] text-sm">
+          <table className="w-full min-w-[55rem] text-sm">
             <thead className="bg-[#EAF4EE] text-left text-xs uppercase tracking-wide text-[#245347]">
               <tr>
                 <th className="px-3.5 py-3 w-12 text-center">No</th>
@@ -190,43 +237,82 @@ function DashboardPage() {
                 ))}
                 <th className="px-3.5 py-3 text-center">Nilai Pekanan</th>
                 <th className="px-3.5 py-3">Status Predikat</th>
+                <th className="px-3.5 py-3 text-center">Aksi</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[#DCE9E1]">
-              {uniqueRows.map((row, index) => (
-                <tr key={row.binaanId} className="hover:bg-[#F5FAF7] transition-colors">
-                  <td className="px-3.5 py-3 text-center text-xs text-[#52635C] tabular-nums">{index + 1}</td>
-                  <td className="px-3.5 py-3 font-semibold text-[#173C32]">
-                    <Link
-                      to="/binaan/$binaanId"
-                      params={{ binaanId: row.binaanId }}
-                      className="text-[#006B54] hover:underline hover:text-[#0F8A6A]"
-                    >
-                      {row.name}
-                    </Link>
-                  </td>
-                  {recap.indicators.map((i) => (
-                    <td key={i.id} className="px-3 py-3 text-center tabular-nums text-xs text-[#52635C]">
-                      {row.filled ? formatDisplayScore(row.scores[i.id]) : "–"}
+              {uniqueRows.map((row, index) => {
+                const isUzurIndicator = (indId: string) => row.uzurByIndicator?.[indId];
+                return (
+                  <tr key={row.binaanId} className="hover:bg-[#F5FAF7] transition-colors">
+                    <td className="px-3.5 py-3 text-center text-xs text-[#52635C] tabular-nums">{index + 1}</td>
+                    <td className="px-3.5 py-3 font-semibold text-[#173C32]">
+                      <Link
+                        to="/binaan/$binaanId"
+                        params={{ binaanId: row.binaanId }}
+                        className="text-[#006B54] hover:underline hover:text-[#0F8A6A]"
+                      >
+                        {row.name}
+                      </Link>
+                      {row.uzurCount > 0 && (
+                        <span className="ml-2 text-[10px] text-purple-700 bg-purple-50 px-1.5 py-0.5 rounded border border-purple-200">
+                          {row.uzurCount} Uzur
+                        </span>
+                      )}
                     </td>
-                  ))}
-                  <td className="px-3.5 py-3 text-center font-bold tabular-nums text-[#006B54]">
-                    {row.filled ? formatDisplayScore(row.total) : "–"}
-                  </td>
-                  <td className="px-3.5 py-3">
-                    {row.filled ? (
-                      <ScoreBadge score={row.total} />
-                    ) : (
-                      <span className="inline-flex items-center rounded-full bg-[#F1F3F2] px-2.5 py-0.5 text-xs font-medium text-[#66736D]">
-                        Belum mengisi
-                      </span>
-                    )}
-                  </td>
-                </tr>
-              ))}
+                    {recap.indicators.map((i) => {
+                      if (!row.filled) {
+                        return (
+                          <td key={i.id} className="px-3 py-3 text-center text-xs text-[#52635C]">
+                            –
+                          </td>
+                        );
+                      }
+                      if (isUzurIndicator(i.id)) {
+                        return (
+                          <td key={i.id} className="px-3 py-3 text-center">
+                            <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-purple-100 text-purple-800 border border-purple-200">
+                              UZUR
+                            </span>
+                          </td>
+                        );
+                      }
+                      return (
+                        <td key={i.id} className="px-3 py-3 text-center tabular-nums text-xs text-[#52635C]">
+                          {formatDisplayScore(row.scores[i.id])}
+                        </td>
+                      );
+                    })}
+                    <td className="px-3.5 py-3 text-center font-bold tabular-nums text-[#006B54]">
+                      {row.filled ? formatDisplayScore(row.total) : "–"}
+                    </td>
+                    <td className="px-3.5 py-3">
+                      {row.filled ? (
+                        <ScoreBadge score={row.total} />
+                      ) : (
+                        <span className="inline-flex items-center rounded-full bg-[#F1F3F2] px-2.5 py-0.5 text-xs font-medium text-[#66736D]">
+                          Belum mengisi
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-3.5 py-3 text-center">
+                      {row.filled && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setResetConfirmBinaan({ id: row.binaanId, name: row.name })}
+                          className="h-8 px-2 text-xs font-medium text-rose-700 hover:text-rose-800 hover:bg-rose-50 border border-rose-200 rounded-lg"
+                        >
+                          <RotateCcw className="mr-1 h-3.5 w-3.5" /> Reset
+                        </Button>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
               {uniqueRows.length === 0 && (
                 <tr>
-                  <td colSpan={recap.indicators.length + 4} className="px-3 py-8 text-center text-xs text-[#52635C]">
+                  <td colSpan={recap.indicators.length + 5} className="px-3 py-8 text-center text-xs text-[#52635C]">
                     Belum ada data binaan untuk mentor ini.
                   </td>
                 </tr>
@@ -235,6 +321,73 @@ function DashboardPage() {
           </table>
         </div>
       </div>
+
+      {/* KEHADIRAN MENTORING SECTION */}
+      <div className="surface-card overflow-hidden border border-[#DCE9E1] rounded-2xl bg-white space-y-3 p-4 sm:p-5">
+        <div className="flex items-center gap-2 border-b border-[#DCE9E1] pb-3">
+          <UserCheck className="h-5 w-5 text-[#006B54]" />
+          <h2 className="text-base font-bold text-[#173C32]">KEHADIRAN MENTORING</h2>
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[36rem] text-sm">
+            <thead className="bg-[#EAF4EE] text-left text-xs uppercase tracking-wide text-[#245347]">
+              <tr>
+                <th className="px-3.5 py-3">Binaan</th>
+                <th className="px-3.5 py-3 text-center">Hadir</th>
+                <th className="px-3.5 py-3 text-center">Tidak Hadir</th>
+                <th className="px-3.5 py-3 text-center">Persentase Kehadiran</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-[#DCE9E1]">
+              {(recap.attendanceStats ?? []).map((stat) => (
+                <tr key={stat.binaanId} className="hover:bg-[#F5FAF7]">
+                  <td className="px-3.5 py-3 font-semibold text-[#173C32]">{stat.binaanName}</td>
+                  <td className="px-3.5 py-3 text-center font-semibold text-emerald-700">{stat.hadirCount}</td>
+                  <td className="px-3.5 py-3 text-center font-semibold text-rose-700">{stat.tidakHadirCount}</td>
+                  <td className="px-3.5 py-3 text-center font-bold text-[#006B54]">
+                    {stat.percentage}%
+                  </td>
+                </tr>
+              ))}
+              {(recap.attendanceStats ?? []).length === 0 && (
+                <tr>
+                  <td colSpan={4} className="px-3 py-6 text-center text-xs text-[#52635C]">
+                    Belum ada data kehadiran mentoring.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* AlertDialog Confirmation for Reset */}
+      <AlertDialog open={Boolean(resetConfirmBinaan)} onOpenChange={(open) => !open && setResetConfirmBinaan(null)}>
+        <AlertDialogContent className="bg-white border-[#DCE9E1] rounded-2xl max-w-md">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-lg font-bold text-[#173C32]">
+              Reset pengisian Mutabaah?
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-xs text-[#52635C] mt-2">
+              Data pengisian Binaan <strong>{resetConfirmBinaan?.name}</strong> pada periode aktif akan dihapus dan Binaan dapat mengisi kembali. Histori periode sebelumnya tetap aman.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="mt-4 gap-2">
+            <AlertDialogCancel className="h-10 text-xs font-semibold rounded-xl border-[#DCE9E1]">
+              Batal
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => resetConfirmBinaan && resetMutation.mutate(resetConfirmBinaan.id)}
+              disabled={resetMutation.isPending}
+              className="h-10 text-xs font-bold rounded-xl bg-rose-600 hover:bg-rose-700 text-white"
+            >
+              {resetMutation.isPending && <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />}
+              Ya, Reset
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

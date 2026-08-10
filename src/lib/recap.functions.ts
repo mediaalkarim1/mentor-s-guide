@@ -274,3 +274,28 @@ export const resetMentorRecap = createServerFn({ method: "POST" })
 
     return resetMentorRecapServer(client, data.mentorId, data.scope, period?.id ?? null, monthIds);
   });
+
+const resetBinaanSchema = z.object({
+  binaanId: z.string(),
+  periodId: z.string(),
+});
+
+export const resetBinaanSubmission = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data: unknown) => resetBinaanSchema.parse(data))
+  .handler(async ({ data, context }) => {
+    const { resolveAccount } = await import("./account.server");
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { resetBinaanSubmissionServer } = await import("./recap.server");
+    const email = (context.claims as { email?: string }).email ?? null;
+    const account = await resolveAccount(context.userId, email);
+
+    const currentMentorId = account.mentor?.id ?? null;
+    return resetBinaanSubmissionServer(
+      supabaseAdmin,
+      data.binaanId,
+      data.periodId,
+      currentMentorId,
+      account.isAdmin,
+    );
+  });

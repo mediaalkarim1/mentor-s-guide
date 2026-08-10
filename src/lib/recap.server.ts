@@ -101,7 +101,21 @@ export type RecapRow = {
   name: string;
   filled: boolean;
   scores: Record<string, number>;
+  uzurByIndicator: Record<string, boolean>;
+  assessedCount: number;
+  uzurCount: number;
   total: number;
+  attendanceStatus?: "hadir" | "tidak_hadir" | null;
+  mentoringDate?: string | null;
+  attendanceNote?: string | null;
+};
+
+export type BinaanAttendanceStat = {
+  binaanId: string;
+  binaanName: string;
+  hadirCount: number;
+  tidakHadirCount: number;
+  percentage: number;
 };
 
 export type MentorRecap = {
@@ -112,6 +126,7 @@ export type MentorRecap = {
   average: number;
   filledCount: number;
   missingCount: number;
+  attendanceStats: BinaanAttendanceStat[];
 };
 
 export async function buildMentorRecap(
@@ -133,10 +148,40 @@ export async function buildMentorRecap(
 
   const rows: RecapRow[] = [];
 
+  // Fetch all submissions for attendance stats computation
+  const { data: allMentorSubs } = await supabase
+    .from("mutabaah_submissions")
+    .select("binaan_id, attendance_status")
+    .eq("mentor_id", mentorId);
+
+  const attendanceMap = new Map<string, { hadir: number; tidakHadir: number }>();
+  (allMentorSubs ?? []).forEach((s: any) => {
+    const cur = attendanceMap.get(s.binaan_id) ?? { hadir: 0, tidakHadir: 0 };
+    if (s.attendance_status === "tidak_hadir") {
+      cur.tidakHadir += 1;
+    } else {
+      cur.hadir += 1;
+    }
+    attendanceMap.set(s.binaan_id, cur);
+  });
+
+  const attendanceStats: BinaanAttendanceStat[] = ((binaanRows ?? []) as any[]).map((b) => {
+    const stats = attendanceMap.get(b.id) ?? { hadir: 0, tidakHadir: 0 };
+    const total = stats.hadir + stats.tidakHadir;
+    const percentage = total > 0 ? Math.round((stats.hadir / total) * 10000) / 100 : 0;
+    return {
+      binaanId: b.id,
+      binaanName: b.name,
+      hadirCount: stats.hadir,
+      tidakHadirCount: stats.tidakHadir,
+      percentage,
+    };
+  });
+
   if (period) {
     const { data: subs } = await supabase
       .from("mutabaah_submissions")
-      .select("id, binaan_id, total_score, mutabaah_entries(indicator_id, achievement_percentage)")
+      .select("id, binaan_id, total_score, attendance_status, mentoring_date, attendance_note, mutabaah_entries(indicator_id, achievement_percentage, is_uzur)")
       .eq("mentor_id", mentorId)
       .eq("period_id", period.id);
 
@@ -146,22 +191,49 @@ export async function buildMentorRecap(
     for (const b of (binaanRows ?? []) as any[]) {
       const sub = subByBinaan.get(b.id);
       const scores: Record<string, number> = {};
+      const uzurByIndicator: Record<string, boolean> = {};
+      let uzurCount = 0;
+      let assessedCount = 0;
+
       if (sub?.mutabaah_entries) {
         for (const e of sub.mutabaah_entries) {
+          const isUzur = Boolean(e.is_uzur);
+          uzurByIndicator[e.indicator_id] = isUzur;
           scores[e.indicator_id] = Number(e.achievement_percentage ?? 0);
+          if (isUzur) {
+            uzurCount += 1;
+          } else {
+            assessedCount += 1;
+          }
         }
       }
+
       rows.push({
         binaanId: b.id,
         name: b.name,
         filled: Boolean(sub),
         scores,
+        uzurByIndicator,
+        assessedCount,
+        uzurCount,
         total: sub ? Number(sub.total_score) : 0,
+        attendanceStatus: sub?.attendance_status ?? null,
+        mentoringDate: sub?.mentoring_date ?? null,
+        attendanceNote: sub?.attendance_note ?? null,
       });
     }
   } else {
     for (const b of (binaanRows ?? []) as any[]) {
-      rows.push({ binaanId: b.id, name: b.name, filled: false, scores: {}, total: 0 });
+      rows.push({
+        binaanId: b.id,
+        name: b.name,
+        filled: false,
+        scores: {},
+        uzurByIndicator: {},
+        assessedCount: 0,
+        uzurCount: 0,
+        total: 0,
+      });
     }
   }
 
@@ -175,6 +247,7 @@ export async function buildMentorRecap(
     average: averageScore(filled.map((r) => r.total)),
     filledCount: filled.length,
     missingCount: Math.max(0, rows.length - filled.length),
+    attendanceStats,
   };
 }
 
@@ -276,7 +349,7 @@ export async function buildBinaanDetail(supabase: DB, binaanId: string, periodId
 
   const { data: subs } = await supabase
     .from("mutabaah_submissions")
-    .select("id, period_id, total_score, mutabaah_entries(indicator_id, target, realization, achievement_percentage)")
+    .select("id, period_id, total_score, mutabaah_entries(indicator_id, target, realization, achievement_percentage, is_uzur)")
     .eq("binaan_id", binaanId);
 
   const current = ((subs ?? []) as any[]).find((s) => period && s.period_id === period.id);
@@ -290,6 +363,7 @@ export async function buildBinaanDetail(supabase: DB, binaanId: string, periodId
           unit: ind.unit,
           realization: Number(e?.realization ?? 0),
           score: Number(e?.achievement_percentage ?? 0),
+          isUzur: Boolean(e?.is_uzur),
         };
       })
     : [];
@@ -374,7 +448,7 @@ export async function buildBinaanMonthlyRecap(supabase: DB, mentorId: string, mo
   const { data: subs } = periodIds.length
     ? await supabase
         .from("mutabaah_submissions")
-        .select("binaan_id, period_id, total_score")
+        .select("binaan_id, period_id, total_score, attendance_status")
         .eq("mentor_id", mentorId)
         .in("period_id", periodIds)
     : { data: [] as any[] };
@@ -393,11 +467,27 @@ export async function buildBinaanMonthlyRecap(supabase: DB, mentorId: string, mo
     };
   });
 
+  const attendanceStats: BinaanAttendanceStat[] = ((binaan ?? []) as any[]).map((b) => {
+    const binaanSubs = ((subs ?? []) as any[]).filter((s) => s.binaan_id === b.id);
+    const hadirCount = binaanSubs.filter((s) => s.attendance_status !== "tidak_hadir").length;
+    const tidakHadirCount = binaanSubs.filter((s) => s.attendance_status === "tidak_hadir").length;
+    const total = binaanSubs.length;
+    const percentage = total > 0 ? Math.round((hadirCount / total) * 10000) / 100 : 0;
+    return {
+      binaanId: b.id,
+      binaanName: b.name,
+      hadirCount,
+      tidakHadirCount,
+      percentage,
+    };
+  });
+
   return {
     months,
     month: selectedMonth,
     periods: monthPeriods,
     rows,
+    attendanceStats,
     mentorName: mentor?.name ?? "-",
   };
 }
@@ -420,7 +510,7 @@ export async function buildSingleBinaanMonthlyDetail(supabase: DB, binaanId: str
   const { data: subs } = periodIds.length
     ? await supabase
         .from("mutabaah_submissions")
-        .select("period_id, total_score, mutabaah_entries(indicator_id, realization, achievement_percentage)")
+        .select("period_id, total_score, mutabaah_entries(indicator_id, realization, achievement_percentage, is_uzur)")
         .eq("binaan_id", binaanId)
         .in("period_id", periodIds)
     : { data: [] as any[] };
@@ -440,10 +530,11 @@ export async function buildSingleBinaanMonthlyDetail(supabase: DB, binaanId: str
     const values = ((subs ?? []) as any[]).flatMap((s) =>
       (s.mutabaah_entries ?? []).filter((e: any) => e.indicator_id === ind.id),
     );
-    const avgScore = averageScore(values.map((v: any) => Number(v.achievement_percentage ?? 0)));
-    const avgRealization = values.length
+    const nonUzurValues = values.filter((v: any) => !v.is_uzur);
+    const avgScore = averageScore(nonUzurValues.map((v: any) => Number(v.achievement_percentage ?? 0)));
+    const avgRealization = nonUzurValues.length
       ? Math.round(
-          (values.reduce((sum: number, v: any) => sum + Number(v.realization ?? 0), 0) / values.length) * 100,
+          (nonUzurValues.reduce((sum: number, v: any) => sum + Number(v.realization ?? 0), 0) / nonUzurValues.length) * 100,
         ) / 100
       : 0;
     return {
@@ -453,6 +544,7 @@ export async function buildSingleBinaanMonthlyDetail(supabase: DB, binaanId: str
       unit: ind.unit,
       avgScore,
       avgRealization,
+      uzurCount: values.filter((v: any) => v.is_uzur).length,
     };
   });
 
@@ -481,7 +573,7 @@ export async function buildExportRows(supabase: DB, periodId?: string) {
   const { data: subs } = await supabase
     .from("mutabaah_submissions")
     .select(
-      "total_score, binaan(name), mentors(name), mutabaah_entries(indicator_id, achievement_percentage)",
+      "total_score, binaan(name), mentors(name), mutabaah_entries(indicator_id, achievement_percentage, is_uzur)",
     )
     .eq("period_id", period.id);
 
@@ -489,17 +581,55 @@ export async function buildExportRows(supabase: DB, periodId?: string) {
     mentor: s.mentors?.name ?? "-",
     binaan: s.binaan?.name ?? "-",
     period: `${period.start_date} s/d ${period.end_date}`,
-    scores: indicators.map((ind) => ({
-      name: ind.name,
-      score: Number(
-        (s.mutabaah_entries ?? []).find((e: any) => e.indicator_id === ind.id)?.achievement_percentage ?? 0,
-      ),
-    })),
+    scores: indicators.map((ind) => {
+      const entry = (s.mutabaah_entries ?? []).find((e: any) => e.indicator_id === ind.id);
+      return {
+        name: ind.name,
+        score: entry?.is_uzur ? "UZUR" : Number(entry?.achievement_percentage ?? 0),
+      };
+    }),
     total: Number(s.total_score),
   }));
 }
 
 /* -------------------------------------- Reset -------------------------------------- */
+
+export async function resetBinaanSubmissionServer(
+  supabase: DB,
+  binaanId: string,
+  periodId: string,
+  currentMentorId?: string | null,
+  isAdmin?: boolean,
+) {
+  const { data: binaan } = await supabase
+    .from("binaan")
+    .select("id, name, mentor_id")
+    .eq("id", binaanId)
+    .maybeSingle();
+
+  if (!binaan) {
+    return { ok: false as const, error: "Data Binaan tidak ditemukan." };
+  }
+
+  // Security Authorization Guard: Mentor can ONLY reset their own Binaan
+  if (!isAdmin && currentMentorId && binaan.mentor_id !== currentMentorId) {
+    return { ok: false as const, error: "Akses ditolak. Anda hanya dapat mereset Binaan binaan Anda." };
+  }
+
+  const { data: subs } = await supabase
+    .from("mutabaah_submissions")
+    .select("id")
+    .eq("binaan_id", binaanId)
+    .eq("period_id", periodId);
+
+  const ids = ((subs ?? []) as any[]).map((s) => s.id);
+  if (ids.length) {
+    await supabase.from("mutabaah_entries").delete().in("submission_id", ids);
+    await supabase.from("mutabaah_submissions").delete().in("id", ids);
+  }
+
+  return { ok: true as const, binaanName: binaan.name, deleted: ids.length };
+}
 
 export async function resetMentorRecapServer(
   supabase: DB,

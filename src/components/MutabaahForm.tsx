@@ -39,6 +39,9 @@ export function MutabaahForm() {
   const [mentorId, setMentorId] = useState("");
   const [openBinaan, setOpenBinaan] = useState(false);
   const [values, setValues] = useState<Record<string, string>>({});
+  const [attendanceStatus, setAttendanceStatus] = useState<"hadir" | "tidak_hadir">("hadir");
+  const [mentoringDate, setMentoringDate] = useState(() => new Date().toISOString().split("T")[0]);
+  const [attendanceNote, setAttendanceNote] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<SuccessState | null>(null);
 
@@ -76,11 +79,26 @@ export function MutabaahForm() {
 
   const mutation = useMutation({
     mutationFn: async () => {
-      const entries = indicators.map((i) => ({
-        indicatorId: i.id,
-        realization: Number(values[i.id]),
-      }));
-      return submitFn({ data: { binaanId, mentorId, entries } });
+      const entries = indicators.map((i) => {
+        const valStr = values[i.id];
+        const numVal = Number(valStr);
+        const isUzur = numVal === -1 || valStr === "uzur";
+        return {
+          indicatorId: i.id,
+          realization: isUzur ? 0 : numVal,
+          isUzur,
+        };
+      });
+      return submitFn({
+        data: {
+          binaanId,
+          mentorId,
+          entries,
+          attendanceStatus,
+          mentoringDate,
+          attendanceNote,
+        },
+      });
     },
     onSuccess: (result) => {
       if (result.ok) {
@@ -119,7 +137,7 @@ export function MutabaahForm() {
   if (success) {
     return (
       <div className="mx-auto w-full max-w-lg px-4 py-8 sm:py-12">
-        <div className="surface-card p-6 sm:p-8 text-center border border-[#DCE9E1] rounded-2xl shadow-sm">
+        <div className="surface-card p-6 sm:p-8 text-center border border-[#DCE9E1] rounded-2xl shadow-sm bg-white">
           <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-[#E6F4EE] text-[#006B54]">
             <Check className="h-8 w-8" />
           </div>
@@ -128,7 +146,7 @@ export function MutabaahForm() {
             Terima kasih telah mengisi mutabaah pekanan.
           </p>
 
-          <div className="surface-soft p-5 rounded-xl text-left space-y-3 mb-6 border border-[#D5E3DB]">
+          <div className="surface-soft p-5 rounded-xl text-left space-y-3 mb-6 border border-[#D5E3DB] bg-[#F5FAF7]">
             <div className="flex justify-between border-b border-[#D5E3DB] pb-2 text-xs">
               <span className="text-[#52635C]">Periode</span>
               <span className="font-semibold text-[#173C32]">{success.period}</span>
@@ -140,6 +158,12 @@ export function MutabaahForm() {
             <div className="flex justify-between border-b border-[#D5E3DB] pb-2 text-xs">
               <span className="text-[#52635C]">Mentor</span>
               <span className="font-semibold text-[#173C32]">{success.mentorName}</span>
+            </div>
+            <div className="flex justify-between border-b border-[#D5E3DB] pb-2 text-xs">
+              <span className="text-[#52635C]">Kehadiran Mentoring</span>
+              <span className={cn("font-bold text-xs px-2 py-0.5 rounded", attendanceStatus === "hadir" ? "bg-emerald-100 text-emerald-800" : "bg-rose-100 text-rose-800")}>
+                {attendanceStatus === "hadir" ? "Hadir" : "Tidak Hadir"}
+              </span>
             </div>
             <div className="flex justify-between items-center pt-1 text-xs">
               <span className="text-[#52635C] font-semibold">Skor Pekanan</span>
@@ -153,6 +177,8 @@ export function MutabaahForm() {
               setBinaanId("");
               setMentorId("");
               setValues({});
+              setAttendanceStatus("hadir");
+              setAttendanceNote("");
             }}
             className="w-full bg-[#006B54] hover:bg-[#005844] text-white font-bold h-11 text-sm rounded-xl shadow-xs"
           >
@@ -272,7 +298,7 @@ export function MutabaahForm() {
         </div>
 
         {/* Step 2: 9 Indikator Pekanan */}
-        <div className="space-y-4">
+        <div className="space-y-4 pb-5 border-b border-[#DCE9E1]">
           <div className="flex items-center justify-between">
             <h2 className="text-sm sm:text-base font-bold text-[#173C32] flex items-center gap-2">
               <span className="flex h-6 w-6 items-center justify-center rounded-full bg-[#006B54] text-white text-xs font-bold">2</span>
@@ -326,9 +352,9 @@ export function MutabaahForm() {
                           <SelectItem
                             key={`${opt.value}-${optIdx}`}
                             value={String(opt.value)}
-                            className="text-xs sm:text-sm py-2 cursor-pointer"
+                            className={cn("text-xs sm:text-sm py-2 cursor-pointer", opt.isUzur && "font-bold text-purple-700 bg-purple-50 hover:bg-purple-100")}
                           >
-                            {opt.label}
+                            {opt.isUzur ? "⚪ Uzur (Tidak Dinilai)" : opt.label}
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -338,6 +364,65 @@ export function MutabaahForm() {
               })}
             </div>
           )}
+        </div>
+
+        {/* Step 3: Kehadiran Mentoring */}
+        <div className="space-y-4">
+          <h2 className="text-sm sm:text-base font-bold text-[#173C32] flex items-center gap-2">
+            <span className="flex h-6 w-6 items-center justify-center rounded-full bg-[#006B54] text-white text-xs font-bold">3</span>
+            KEHADIRAN MENTORING
+          </h2>
+
+          <div className="p-4 rounded-xl border border-[#EAF2ED] bg-[#F9FCFA] space-y-4">
+            <div className="space-y-2">
+              <Label className="text-xs font-semibold text-[#173C32]">Status Kehadiran Mentoring Pekan Ini</Label>
+              <div className="flex items-center gap-4">
+                <label className="flex items-center gap-2 text-xs font-semibold text-[#173C32] cursor-pointer">
+                  <input
+                    type="radio"
+                    name="attendance_status"
+                    value="hadir"
+                    checked={attendanceStatus === "hadir"}
+                    onChange={() => setAttendanceStatus("hadir")}
+                    className="h-4 w-4 text-[#006B54] focus:ring-[#006B54]"
+                  />
+                  <span>● Hadir</span>
+                </label>
+                <label className="flex items-center gap-2 text-xs font-semibold text-[#173C32] cursor-pointer">
+                  <input
+                    type="radio"
+                    name="attendance_status"
+                    value="tidak_hadir"
+                    checked={attendanceStatus === "tidak_hadir"}
+                    onChange={() => setAttendanceStatus("tidak_hadir")}
+                    className="h-4 w-4 text-[#006B54] focus:ring-[#006B54]"
+                  />
+                  <span>○ Tidak Hadir</span>
+                </label>
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold text-[#173C32]">Tanggal Mentoring</Label>
+              <input
+                type="date"
+                value={mentoringDate}
+                onChange={(e) => setMentoringDate(e.target.value)}
+                className="w-full h-10 px-3 rounded-lg bg-white border border-[#D5E3DB] text-xs font-medium text-[#173C32] focus:outline-none focus:border-[#0F8A6A]"
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold text-[#173C32]">Keterangan / Catatan (Opsional)</Label>
+              <textarea
+                rows={2}
+                value={attendanceNote}
+                onChange={(e) => setAttendanceNote(e.target.value)}
+                placeholder="Contoh: Mentoring berjalan seperti biasa."
+                className="w-full p-2.5 rounded-lg bg-white border border-[#D5E3DB] text-xs text-[#173C32] placeholder:text-muted-foreground focus:outline-none focus:border-[#0F8A6A]"
+              />
+            </div>
+          </div>
         </div>
 
         {error && (

@@ -84,10 +84,16 @@ function BinaanDetailPage() {
                     {e.target} {e.unit}
                   </td>
                   <td className="px-4 py-3 text-xs font-medium text-[#173C32]">
-                    {e.realization} {e.unit}
+                    {e.isUzur ? "⚪ Uzur" : `${e.realization} ${e.unit}`}
                   </td>
                   <td className="px-4 py-3 text-right font-bold tabular-nums text-[#006B54]">
-                    {formatDisplayScore(e.score)}
+                    {e.isUzur ? (
+                      <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-purple-100 text-purple-800 border border-purple-200">
+                        UZUR
+                      </span>
+                    ) : (
+                      formatDisplayScore(e.score)
+                    )}
                   </td>
                 </tr>
               ))}

@@ -1,4 +1,6 @@
-export type CapaianOption = { label: string; value: number; score?: number };
+export const UZUR_VALUE = -1;
+
+export type CapaianOption = { label: string; value: number; score?: number; isUzur?: boolean };
 
 export type IndicatorOptionMap = Record<string, CapaianOption[]>;
 
@@ -70,32 +72,36 @@ export const INDICATOR_OPTIONS: IndicatorOptionMap = {
 };
 
 export function optionsFor(codeOrTarget: string | number, target?: number, unit?: string): CapaianOption[] {
+  let baseOptions: CapaianOption[] = [];
+
   if (typeof codeOrTarget === "number") {
     const max = Math.max(1, Math.round(codeOrTarget));
-    return Array.from({ length: max + 1 }, (_, i) => ({
+    baseOptions = Array.from({ length: max + 1 }, (_, i) => ({
       label: i === max ? `${i} atau lebih` : `${i}`,
       value: i,
       score: scoreFor(i, codeOrTarget),
     }));
+  } else {
+    const code = (codeOrTarget ?? "").toLowerCase().trim();
+    const tgt = target ?? 1;
+    const preset = INDICATOR_OPTIONS[code];
+    if (preset) {
+      baseOptions = preset.map((opt) => ({
+        ...opt,
+        score: scoreFor(opt.value, tgt),
+      }));
+    } else {
+      const max = Math.max(1, Math.round(tgt));
+      const u = unit ?? "";
+      baseOptions = Array.from({ length: max + 1 }, (_, i) => ({
+        label: i === max ? `${i} ${u} atau lebih`.trim() : `${i} ${u}`.trim(),
+        value: i,
+        score: scoreFor(i, tgt),
+      }));
+    }
   }
 
-  const code = (codeOrTarget ?? "").toLowerCase().trim();
-  const tgt = target ?? 1;
-  const preset = INDICATOR_OPTIONS[code];
-  if (preset) {
-    return preset.map((opt) => ({
-      ...opt,
-      score: scoreFor(opt.value, tgt),
-    }));
-  }
-
-  const max = Math.max(1, Math.round(tgt));
-  const u = unit ?? "";
-  return Array.from({ length: max + 1 }, (_, i) => ({
-    label: i === max ? `${i} ${u} atau lebih`.trim() : `${i} ${u}`.trim(),
-    value: i,
-    score: scoreFor(i, tgt),
-  }));
+  return [...baseOptions, { label: "Uzur", value: UZUR_VALUE, isUzur: true, score: undefined }];
 }
 
 export function scoreFor(realization: number, target: number): number {
