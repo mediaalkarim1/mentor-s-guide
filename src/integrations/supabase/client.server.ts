@@ -34,9 +34,7 @@ function createSupabaseAdminClient() {
   // Cloudflare Workers: try to get env from request context binding
   let cfEnv: Record<string, string> = {};
   try {
-    // @ts-ignore - Cloudflare Workers specific
-    const ctx = globalThis.__rlsEnvCache || {};
-    cfEnv = ctx;
+    cfEnv = (globalThis as any).__rlsEnvCache || (globalThis as any).__cf_env || {};
   } catch (_) {}
 
   // Also try globalThis for Cloudflare Workers env vars
