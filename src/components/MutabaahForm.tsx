@@ -32,22 +32,7 @@ export function MutabaahForm() {
 
   const { data, isLoading } = useQuery({
     queryKey: ["public-form"],
-    queryFn: async () => {
-      try {
-        const res = await loadData();
-        if (res && res.mentors && res.mentors.length > 0) {
-          return res;
-        }
-      } catch (e) {
-        console.warn("loadData failed, using master fallbacks", e);
-      }
-      return {
-        period: MASTER_PERIOD,
-        mentors: MASTER_MENTORS,
-        binaan: MASTER_BINAAN,
-        indicators: MASTER_INDICATORS,
-      };
-    },
+    queryFn: () => loadData(),
   });
 
   const [binaanId, setBinaanId] = useState("");
