@@ -64,9 +64,9 @@ export async function setMentorOverrideRow(
     mentorId: string;
     periodId: string;
     isOverride: boolean;
-    manualWeeklyScore?: number;
-    manualMonthlyScore?: number;
-    manualStatus?: string;
+    manualWeeklyScore?: number | undefined;
+    manualMonthlyScore?: number | undefined;
+    manualStatus?: string | undefined;
   },
 ) {
   if (!input.isOverride) {
@@ -189,9 +189,9 @@ export type MentorSummary = {
   weeklyScore: number;
   monthlyScore: number;
   isOverride: boolean;
-  manualWeeklyScore?: number;
-  manualMonthlyScore?: number;
-  manualStatus?: string;
+  manualWeeklyScore?: number | undefined;
+  manualMonthlyScore?: number | undefined;
+  manualStatus?: string | undefined;
   source: "Otomatis" | "Manual Admin";
 };
 

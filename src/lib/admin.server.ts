@@ -41,12 +41,12 @@ export async function loadAdminData() {
 /* ------------------------------------- Mentors ------------------------------------- */
 
 type MentorInput = {
-  id?: string;
+  id?: string | undefined;
   name: string;
-  username?: string | null;
-  email?: string | null;
-  password?: string | null;
-  status?: string;
+  username?: string | null | undefined;
+  email?: string | null | undefined;
+  password?: string | null | undefined;
+  status?: string | undefined;
 };
 
 async function syncMentorAuthUser(mentorId: string, email: string, password?: string | null) {
@@ -59,7 +59,7 @@ async function syncMentorAuthUser(mentorId: string, email: string, password?: st
   let userId = mentor?.user_id as string | null | undefined;
 
   if (userId) {
-    const payload: Record<string, unknown> = { email, email_confirm: true };
+    const payload: any = { email, email_confirm: true };
     if (password) payload["password"] = password;
     const { error } = await supabaseAdmin.auth.admin.updateUserById(userId, payload as any);
     if (error) return { ok: false, error: error.message };
@@ -93,7 +93,7 @@ export async function saveMentorRow(data: MentorInput) {
   const username = slugify(data.username || data.name);
   const email = (data.email && data.email.trim().length > 0 ? data.email.trim().toLowerCase() : mentorEmailFor(username));
 
-  const payload: Record<string, unknown> = {
+  const payload: any = {
     name: data.name.trim(),
     username,
     email,
@@ -137,13 +137,13 @@ export async function deleteMentorRow(id: string) {
 /* -------------------------------------- Binaan ------------------------------------- */
 
 export async function saveBinaanRow(data: {
-  id?: string;
+  id?: string | undefined;
   name: string;
   mentor_id: string;
-  phone?: string | null;
-  status?: string;
+  phone?: string | null | undefined;
+  status?: string | undefined;
 }) {
-  const payload: Record<string, unknown> = {
+  const payload: any = {
     name: data.name.trim(),
     mentor_id: data.mentor_id,
     phone: data.phone ?? null,
@@ -178,8 +178,8 @@ export async function deleteBinaanRow(id: string) {
   return { ok: true, mode: "hard" as const };
 }
 
-export async function restoreBinaanRow(data: { id: string; mentor_id?: string }) {
-  const payload: Record<string, unknown> = { status: "active" };
+export async function restoreBinaanRow(data: { id: string; mentor_id?: string | undefined }) {
+  const payload: any = { status: "active" };
   if (data.mentor_id) payload["mentor_id"] = data.mentor_id;
   const { error } = await supabaseAdmin.from("binaan").update(payload).eq("id", data.id);
   if (error) return { ok: false, error: error.message };
@@ -189,7 +189,7 @@ export async function restoreBinaanRow(data: { id: string; mentor_id?: string })
 /* ------------------------------------ Indicators ----------------------------------- */
 
 export async function saveIndicatorRow(data: {
-  id?: string;
+  id?: string | undefined;
   code: string;
   name: string;
   target: number;
@@ -197,7 +197,7 @@ export async function saveIndicatorRow(data: {
   order_number: number;
   active: boolean;
 }) {
-  const payload: Record<string, unknown> = {
+  const payload: any = {
     code: data.code.trim(),
     name: data.name.trim(),
     target: data.target,
@@ -221,12 +221,12 @@ export async function deleteIndicatorRow(id: string) {
 /* -------------------------------------- Periods ------------------------------------ */
 
 export async function savePeriodRow(data: {
-  id?: string;
+  id?: string | undefined;
   start_date: string;
   end_date: string;
   status: string;
 }) {
-  const payload: Record<string, unknown> = {
+  const payload: any = {
     start_date: data.start_date,
     end_date: data.end_date,
     status: data.status,
