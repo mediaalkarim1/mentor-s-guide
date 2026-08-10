@@ -10,13 +10,7 @@ export async function listPeriods(supabase: DB): Promise<Period[]> {
     .from("mutabaah_periods")
     .select("id, start_date, end_date, status")
     .order("start_date", { ascending: false });
-  const periods = (data ?? []) as Period[];
-  if (periods.length === 0) {
-    return [
-      { id: "p1000000-0000-0000-0000-000000000004", start_date: "2026-08-10", end_date: "2026-08-16", status: "active" },
-    ];
-  }
-  return periods;
+  return (data ?? []) as Period[];
 }
 
 export async function resolvePeriod(supabase: DB, periodId?: string): Promise<Period | null> {
@@ -201,22 +195,6 @@ export type MentorSummary = {
   source: "Otomatis" | "Manual Admin";
 };
 
-const MASTER_MENTORS_FALLBACK = [
-  { id: "11111111-1111-1111-1111-111111111111", name: "Abi Azam" },
-  { id: "a1000000-0000-0000-0000-000000000012", name: "Abi Endi" },
-  { id: "a1000000-0000-0000-0000-000000000013", name: "Abi Tama" },
-  { id: "a1000000-0000-0000-0000-000000000006", name: "Umi Ditha" },
-  { id: "a1000000-0000-0000-0000-000000000001", name: "Umi Indah" },
-  { id: "a1000000-0000-0000-0000-000000000002", name: "Umi Melisa" },
-  { id: "a1000000-0000-0000-0000-000000000011", name: "Umi Miftah" },
-  { id: "a1000000-0000-0000-0000-000000000003", name: "Umi Navi" },
-  { id: "a1000000-0000-0000-0000-000000000009", name: "Umi Nia" },
-  { id: "a1000000-0000-0000-0000-000000000004", name: "Umi Novi" },
-  { id: "a1000000-0000-0000-0000-000000000005", name: "Umi Okti" },
-  { id: "a1000000-0000-0000-0000-000000000008", name: "Umi Resty" },
-  { id: "a1000000-0000-0000-0000-000000000010", name: "Umi Tiwi" },
-];
-
 export async function buildMentorSummaries(
   supabase: DB,
   periodId: string | null,
@@ -230,9 +208,8 @@ export async function buildMentorSummaries(
   ]);
 
   const overrideByMentor = new Map(overrides.map((o) => [o.mentor_id, o]));
-  const mentorList = (mentors && mentors.length > 0) ? mentors : MASTER_MENTORS_FALLBACK;
 
-  return (mentorList as any[]).map((m) => {
+  return ((mentors ?? []) as any[]).map((m) => {
     const own = ((binaan ?? []) as any[]).filter((b) => b.mentor_id === m.id);
     const weekSubs = ((subs ?? []) as any[]).filter(
       (s) => s.mentor_id === m.id && periodId && s.period_id === periodId,

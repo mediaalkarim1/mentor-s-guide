@@ -86,7 +86,7 @@ export const getAdminDashboard = createServerFn({ method: "POST" })
 
     const filled = summaries.reduce((a, s) => a + s.filled, 0);
     const masterBinaanTotal = summaries.reduce((a, s) => a + s.binaanCount, 0);
-    const totalBinaan = (binaanCount && binaanCount > 0) ? binaanCount : (masterBinaanTotal > 0 ? masterBinaanTotal : 93);
+    const totalBinaan = (binaanCount && binaanCount > 0) ? binaanCount : masterBinaanTotal;
     const scored = summaries.filter((s) => s.filled > 0);
 
     return {
