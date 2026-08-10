@@ -218,15 +218,21 @@ export const saveMentorRecapOverride = createServerFn({ method: "POST" })
       return { ok: false, error: "Akses ditolak. Hanya Admin yang dapat mengubah rekap." };
     }
 
-    const { setMentorOverride } = await import("./recap_overrides.server");
-    setMentorOverride(data.mentorId, data.periodId, {
-      isOverride: data.isOverride,
-      manualWeeklyScore: data.manualWeeklyScore,
-      manualMonthlyScore: data.manualMonthlyScore,
-      manualStatus: data.manualStatus,
-    });
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { resolvePeriod, setMentorOverrideRow } = await import("./recap.server");
+    const period = await resolvePeriod(supabaseAdmin, data.periodId);
+    if (!period) {
+      return { ok: false, error: "Periode tidak ditemukan." };
+    }
 
-    return { ok: true };
+    return setMentorOverrideRow(supabaseAdmin, {
+      mentorId: data.mentorId,
+      periodId: period.id,
+      isOverride: data.isOverride,
+      ...(data.manualWeeklyScore !== undefined ? { manualWeeklyScore: data.manualWeeklyScore } : {}),
+      ...(data.manualMonthlyScore !== undefined ? { manualMonthlyScore: data.manualMonthlyScore } : {}),
+      ...(data.manualStatus !== undefined ? { manualStatus: data.manualStatus } : {}),
+    });
   });
 
 const resetRecapSchema = z.object({
