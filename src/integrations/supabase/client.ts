@@ -32,7 +32,7 @@ function createSupabaseClient() {
 
   let cfEnv: Record<string, string> = {};
   try {
-    cfEnv = (globalThis as any).__rlsEnvCache || (globalThis as any).__cf_env || {};
+    cfEnv = (globalThis as any).__env__ || (globalThis as any).__cf_env || (globalThis as any).__rlsEnvCache || {};
   } catch (_) {}
 
   const gThis = typeof globalThis !== 'undefined' ? (globalThis as any) : {};

@@ -31,10 +31,10 @@ function createSupabaseAdminClient() {
   const metaEnv = typeof import.meta !== 'undefined' && import.meta.env ? import.meta.env : ({} as Record<string, string>);
   const procEnv = typeof process !== 'undefined' && process.env ? process.env : ({} as Record<string, string>);
 
-  // Cloudflare Workers: try to get env from request context binding
+  // Cloudflare Workers (Nitro preset cloudflare-module sets globalThis.__env__)
   let cfEnv: Record<string, string> = {};
   try {
-    cfEnv = (globalThis as any).__rlsEnvCache || (globalThis as any).__cf_env || {};
+    cfEnv = (globalThis as any).__env__ || (globalThis as any).__cf_env || (globalThis as any).__rlsEnvCache || {};
   } catch (_) {}
 
   // Also try globalThis for Cloudflare Workers env vars
@@ -50,14 +50,14 @@ function createSupabaseAdminClient() {
     'https://mvbmkbkgjmvyvadhqbvu.supabase.co';
 
   // Priority: real service_role key from Cloudflare Workers secrets > publishable key fallback
-  // SUPABASE_SERVICE_ROLE_KEY is set as a secret in Cloudflare Workers dashboard
   const SUPABASE_SERVICE_ROLE_KEY =
     procEnv['SUPABASE_SERVICE_ROLE_KEY'] ||
     gThis['SUPABASE_SERVICE_ROLE_KEY'] ||
     cfEnv['SUPABASE_SERVICE_ROLE_KEY'] ||
     procEnv['SUPABASE_SECRET_KEY'] ||
+    gThis['SUPABASE_SECRET_KEY'] ||
+    cfEnv['SUPABASE_SECRET_KEY'] ||
     metaEnv['SUPABASE_SERVICE_ROLE_KEY'] ||
-    // Only fall back to publishable key if nothing better is available
     procEnv['SUPABASE_PUBLISHABLE_KEY'] ||
     procEnv['VITE_SUPABASE_PUBLISHABLE_KEY'] ||
     gThis['SUPABASE_PUBLISHABLE_KEY'] ||
@@ -91,7 +91,7 @@ export function getSupabaseAdminClient() {
 
   let cfEnv: Record<string, string> = {};
   try {
-    cfEnv = (globalThis as any).__rlsEnvCache || (globalThis as any).__cf_env || {};
+    cfEnv = (globalThis as any).__env__ || (globalThis as any).__cf_env || (globalThis as any).__rlsEnvCache || {};
   } catch (_) {}
 
   const gThis = typeof globalThis !== 'undefined' ? (globalThis as any) : {};
@@ -110,6 +110,8 @@ export function getSupabaseAdminClient() {
     gThis['SUPABASE_SERVICE_ROLE_KEY'] ||
     cfEnv['SUPABASE_SERVICE_ROLE_KEY'] ||
     procEnv['SUPABASE_SECRET_KEY'] ||
+    gThis['SUPABASE_SECRET_KEY'] ||
+    cfEnv['SUPABASE_SECRET_KEY'] ||
     metaEnv['SUPABASE_SERVICE_ROLE_KEY'] ||
     procEnv['SUPABASE_PUBLISHABLE_KEY'] ||
     procEnv['VITE_SUPABASE_PUBLISHABLE_KEY'] ||
