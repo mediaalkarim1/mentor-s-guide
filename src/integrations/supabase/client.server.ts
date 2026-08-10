@@ -84,10 +84,56 @@ function createSupabaseAdminClient() {
 
 
 let _supabaseAdmin: ReturnType<typeof createSupabaseAdminClient> | undefined;
+let _lastResolvedKey: string | undefined;
+let _lastResolvedUrl: string | undefined;
+
+export function getSupabaseAdminClient() {
+  const metaEnv = typeof import.meta !== 'undefined' && import.meta.env ? import.meta.env : ({} as Record<string, string>);
+  const procEnv = typeof process !== 'undefined' && process.env ? process.env : ({} as Record<string, string>);
+
+  let cfEnv: Record<string, string> = {};
+  try {
+    cfEnv = (globalThis as any).__rlsEnvCache || (globalThis as any).__cf_env || {};
+  } catch (_) {}
+
+  const gThis = typeof globalThis !== 'undefined' ? (globalThis as any) : {};
+
+  const currentUrl =
+    procEnv['SUPABASE_URL'] ||
+    procEnv['VITE_SUPABASE_URL'] ||
+    gThis['SUPABASE_URL'] ||
+    cfEnv['SUPABASE_URL'] ||
+    metaEnv['VITE_SUPABASE_URL'] ||
+    metaEnv['SUPABASE_URL'] ||
+    'https://mvbmkbkgjmvyvadhqbvu.supabase.co';
+
+  const currentKey =
+    procEnv['SUPABASE_SERVICE_ROLE_KEY'] ||
+    gThis['SUPABASE_SERVICE_ROLE_KEY'] ||
+    cfEnv['SUPABASE_SERVICE_ROLE_KEY'] ||
+    procEnv['SUPABASE_SECRET_KEY'] ||
+    metaEnv['SUPABASE_SERVICE_ROLE_KEY'] ||
+    procEnv['SUPABASE_PUBLISHABLE_KEY'] ||
+    procEnv['VITE_SUPABASE_PUBLISHABLE_KEY'] ||
+    gThis['SUPABASE_PUBLISHABLE_KEY'] ||
+    cfEnv['SUPABASE_PUBLISHABLE_KEY'] ||
+    metaEnv['VITE_SUPABASE_PUBLISHABLE_KEY'] ||
+    metaEnv['SUPABASE_PUBLISHABLE_KEY'] ||
+    'sb_publishable_ygKD2Pijsuxbh9K6kdmYjg_OC_3gykK';
+
+  if (!_supabaseAdmin || _lastResolvedKey !== currentKey || _lastResolvedUrl !== currentUrl) {
+    _supabaseAdmin = createSupabaseAdminClient();
+    _lastResolvedKey = currentKey;
+    _lastResolvedUrl = currentUrl;
+  }
+
+  return _supabaseAdmin;
+}
 
 export const supabaseAdmin = new Proxy({} as ReturnType<typeof createSupabaseAdminClient>, {
   get(_, prop, receiver) {
-    if (!_supabaseAdmin) _supabaseAdmin = createSupabaseAdminClient();
-    return Reflect.get(_supabaseAdmin, prop, receiver);
+    const client = getSupabaseAdminClient();
+    return Reflect.get(client, prop, receiver);
   },
 });
+
