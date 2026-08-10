@@ -254,8 +254,20 @@ function DashboardPage() {
                       >
                         {row.name}
                       </Link>
+                      {row.filled && (
+                        <span
+                          className={cn(
+                            "ml-2 text-[10px] font-bold px-2 py-0.5 rounded border",
+                            row.attendanceStatus === "tidak_hadir"
+                              ? "bg-rose-50 text-rose-700 border-rose-200"
+                              : "bg-emerald-50 text-emerald-700 border-emerald-200",
+                          )}
+                        >
+                          {row.attendanceStatus === "tidak_hadir" ? "Tidak Hadir" : "Hadir"}
+                        </span>
+                      )}
                       {row.uzurCount > 0 && (
-                        <span className="ml-2 text-[10px] text-purple-700 bg-purple-50 px-1.5 py-0.5 rounded border border-purple-200">
+                        <span className="ml-1.5 text-[10px] text-purple-700 bg-purple-50 px-1.5 py-0.5 rounded border border-purple-200">
                           {row.uzurCount} Uzur
                         </span>
                       )}
