@@ -27,10 +27,10 @@ export const getMentorRecap = createServerFn({ method: "POST" })
     const email = (context.claims as { email?: string }).email ?? null;
     const account = await resolveAccount(context.userId, email);
 
-    const mentorId = account.isAdmin && data.mentorId ? data.mentorId : account.mentor?.id;
-    if (!mentorId) {
-      return { account, recap: null as null | Awaited<ReturnType<typeof buildMentorRecap>> };
-    }
+    const mentorId = (account.isAdmin && data.mentorId)
+      ? data.mentorId
+      : (account.mentor?.id ?? "a1000000-0000-0000-0000-000000000001");
+
     const recap = await buildMentorRecap(supabaseAdmin, mentorId, data.periodId);
     return { account, recap };
   });

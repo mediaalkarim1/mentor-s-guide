@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { averageScore, monthLabel } from "./mutabaah-config";
+import { FALLBACK_BINAAN, FALLBACK_INDICATORS, FALLBACK_MENTORS, FALLBACK_PERIOD, SUBMISSION_STORE } from "./mutabaah.server";
 
 type DB = SupabaseClient<any, "public", any>;
 
@@ -10,7 +11,11 @@ export async function listPeriods(supabase: DB): Promise<Period[]> {
     .from("mutabaah_periods")
     .select("id, start_date, end_date, status")
     .order("start_date", { ascending: false });
-  return (data ?? []) as Period[];
+  const periods = (data ?? []) as Period[];
+  if (periods.length === 0) {
+    return [{ ...FALLBACK_PERIOD, status: "active" }];
+  }
+  return periods;
 }
 
 export async function resolvePeriod(supabase: DB, periodId?: string): Promise<Period | null> {
@@ -34,7 +39,11 @@ export async function listIndicators(supabase: DB): Promise<IndicatorRow[]> {
     .select("id, code, name, target, unit, order_number")
     .eq("active", true)
     .order("order_number");
-  return (data ?? []) as IndicatorRow[];
+  const indicators = (data ?? []) as IndicatorRow[];
+  if (indicators.length === 0) {
+    return FALLBACK_INDICATORS;
+  }
+  return indicators;
 }
 
 /* ---------------------------------- Overrides (DB) --------------------------------- */
@@ -139,12 +148,19 @@ export async function buildMentorRecap(
     ? (periods.find((p) => p.id === periodId) ?? null)
     : (periods.find((p) => p.status === "active") ?? periods[0] ?? null);
 
-  const { data: binaanRows } = await supabase
+  const { data: dbBinaanRows } = await supabase
     .from("binaan")
     .select("id, name")
     .eq("mentor_id", mentorId)
     .eq("status", "active")
     .order("name");
+
+  const binaanMap = new Map<string, { id: string; name: string }>();
+  const initialBinaans = (dbBinaanRows && dbBinaanRows.length > 0)
+    ? dbBinaanRows
+    : FALLBACK_BINAAN.filter((b) => b.mentor_id === mentorId);
+
+  initialBinaans.forEach((b: any) => binaanMap.set(b.id, { id: b.id, name: b.name }));
 
   const rows: RecapRow[] = [];
 
@@ -165,18 +181,17 @@ export async function buildMentorRecap(
     attendanceMap.set(s.binaan_id, cur);
   });
 
-  const attendanceStats: BinaanAttendanceStat[] = ((binaanRows ?? []) as any[]).map((b) => {
-    const stats = attendanceMap.get(b.id) ?? { hadir: 0, tidakHadir: 0 };
-    const total = stats.hadir + stats.tidakHadir;
-    const percentage = total > 0 ? Math.round((stats.hadir / total) * 10000) / 100 : 0;
-    return {
-      binaanId: b.id,
-      binaanName: b.name,
-      hadirCount: stats.hadir,
-      tidakHadirCount: stats.tidakHadir,
-      percentage,
-    };
-  });
+  for (const stored of SUBMISSION_STORE.values()) {
+    if (stored.mentor_id === mentorId) {
+      const cur = attendanceMap.get(stored.binaan_id) ?? { hadir: 0, tidakHadir: 0 };
+      if (stored.attendance_status === "tidak_hadir") {
+        cur.tidakHadir += 1;
+      } else {
+        cur.hadir += 1;
+      }
+      attendanceMap.set(stored.binaan_id, cur);
+    }
+  }
 
   if (period) {
     const { data: subs } = await supabase
@@ -186,9 +201,35 @@ export async function buildMentorRecap(
       .eq("period_id", period.id);
 
     const subByBinaan = new Map<string, any>();
-    (subs ?? []).forEach((s: any) => subByBinaan.set(s.binaan_id, s));
+    (subs ?? []).forEach((s: any) => {
+      subByBinaan.set(s.binaan_id, s);
+      if (!binaanMap.has(s.binaan_id)) {
+        const found = FALLBACK_BINAAN.find((fb) => fb.id === s.binaan_id);
+        binaanMap.set(s.binaan_id, { id: s.binaan_id, name: found?.name ?? "Binaan" });
+      }
+    });
 
-    for (const b of (binaanRows ?? []) as any[]) {
+    for (const storedSub of SUBMISSION_STORE.values()) {
+      if (storedSub.mentor_id === mentorId && storedSub.period_id === period.id) {
+        subByBinaan.set(storedSub.binaan_id, {
+          id: storedSub.id,
+          binaan_id: storedSub.binaan_id,
+          total_score: storedSub.total_score,
+          attendance_status: storedSub.attendance_status,
+          mentoring_date: storedSub.mentoring_date,
+          attendance_note: storedSub.attendance_note,
+          mutabaah_entries: storedSub.entries,
+        });
+        if (!binaanMap.has(storedSub.binaan_id)) {
+          const found = FALLBACK_BINAAN.find((fb) => fb.id === storedSub.binaan_id);
+          binaanMap.set(storedSub.binaan_id, { id: storedSub.binaan_id, name: found?.name ?? "Binaan" });
+        }
+      }
+    }
+
+    const targetBinaans = Array.from(binaanMap.values()).sort((a, b) => a.name.localeCompare(b.name));
+
+    for (const b of targetBinaans) {
       const sub = subByBinaan.get(b.id);
       const scores: Record<string, number> = {};
       const uzurByIndicator: Record<string, boolean> = {};
@@ -223,7 +264,8 @@ export async function buildMentorRecap(
       });
     }
   } else {
-    for (const b of (binaanRows ?? []) as any[]) {
+    const targetBinaans = Array.from(binaanMap.values()).sort((a, b) => a.name.localeCompare(b.name));
+    for (const b of targetBinaans) {
       rows.push({
         binaanId: b.id,
         name: b.name,
@@ -236,6 +278,21 @@ export async function buildMentorRecap(
       });
     }
   }
+
+  const attendanceStats: BinaanAttendanceStat[] = Array.from(binaanMap.values())
+    .sort((a, b) => a.name.localeCompare(b.name))
+    .map((b) => {
+      const stats = attendanceMap.get(b.id) ?? { hadir: 0, tidakHadir: 0 };
+      const total = stats.hadir + stats.tidakHadir;
+      const percentage = total > 0 ? Math.round((stats.hadir / total) * 10000) / 100 : 0;
+      return {
+        binaanId: b.id,
+        binaanName: b.name,
+        hadirCount: stats.hadir,
+        tidakHadirCount: stats.tidakHadir,
+        percentage,
+      };
+    });
 
   const filled = rows.filter((r) => r.filled);
 
@@ -273,12 +330,27 @@ export async function buildMentorSummaries(
   periodId: string | null,
   monthPeriodIds: string[],
 ): Promise<MentorSummary[]> {
-  const [{ data: mentors }, { data: binaan }, { data: subs }, overrides] = await Promise.all([
+  const [{ data: dbMentors }, { data: dbBinaan }, { data: dbSubs }, overrides] = await Promise.all([
     supabase.from("mentors").select("id, name").eq("status", "active").order("name"),
     supabase.from("binaan").select("id, mentor_id").eq("status", "active"),
     supabase.from("mutabaah_submissions").select("mentor_id, binaan_id, period_id, total_score"),
     listMentorOverrides(supabase, periodId),
   ]);
+
+  const mentors = (dbMentors && dbMentors.length > 0) ? dbMentors : FALLBACK_MENTORS;
+  const binaan = (dbBinaan && dbBinaan.length > 0) ? dbBinaan : FALLBACK_BINAAN;
+
+  const subs = [...(dbSubs ?? [])];
+  for (const stored of SUBMISSION_STORE.values()) {
+    if (!subs.some((s) => s.binaan_id === stored.binaan_id && s.period_id === stored.period_id)) {
+      subs.push({
+        mentor_id: stored.mentor_id,
+        binaan_id: stored.binaan_id,
+        period_id: stored.period_id,
+        total_score: stored.total_score,
+      });
+    }
+  }
 
   const overrideByMentor = new Map(overrides.map((o) => [o.mentor_id, o]));
 

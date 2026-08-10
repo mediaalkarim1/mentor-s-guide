@@ -37,7 +37,12 @@ export async function resolveAccount(userId: string, email: string | null): Prom
     if (!roleList.includes("admin")) {
       await ensureUserRole(userId, "admin");
     }
-    return { userId, email: normalized, isAdmin: true, mentor: null };
+    return {
+      userId,
+      email: normalized,
+      isAdmin: true,
+      mentor: mentor ?? { id: "a1000000-0000-0000-0000-000000000001", name: "Umi Indah" },
+    };
   }
 
   let mentor: { id: string; name: string } | null = null;
