@@ -17,7 +17,6 @@ export type Database = {
       binaan: {
         Row: {
           created_at: string
-          deleted_at: string | null
           id: string
           mentor_id: string
           name: string
@@ -27,7 +26,6 @@ export type Database = {
         }
         Insert: {
           created_at?: string
-          deleted_at?: string | null
           id?: string
           mentor_id: string
           name: string
@@ -37,7 +35,6 @@ export type Database = {
         }
         Update: {
           created_at?: string
-          deleted_at?: string | null
           id?: string
           mentor_id?: string
           name?: string
@@ -62,7 +59,6 @@ export type Database = {
           id: string
           name: string
           status: string
-          username: string | null
           user_id: string | null
         }
         Insert: {
@@ -71,7 +67,6 @@ export type Database = {
           id?: string
           name: string
           status?: string
-          username?: string | null
           user_id?: string | null
         }
         Update: {
@@ -80,7 +75,6 @@ export type Database = {
           id?: string
           name?: string
           status?: string
-          username?: string | null
           user_id?: string | null
         }
         Relationships: []
