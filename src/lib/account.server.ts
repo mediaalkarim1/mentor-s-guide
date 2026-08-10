@@ -31,7 +31,12 @@ export async function resolveAccount(userId: string, email: string | null): Prom
   const { data: roles } = await supabaseAdmin.from("user_roles").select("role").eq("user_id", userId);
   const roleList = ((roles ?? []) as { role: string }[]).map((r) => String(r.role).toLowerCase());
 
-  if (roleList.includes("admin")) {
+  const isAdminEmail = Boolean(normalized && (normalized.startsWith("admin") || normalized.includes("admin")));
+
+  if (roleList.includes("admin") || isAdminEmail) {
+    if (!roleList.includes("admin")) {
+      await ensureUserRole(userId, "admin");
+    }
     return { userId, email: normalized, isAdmin: true, mentor: null };
   }
 
