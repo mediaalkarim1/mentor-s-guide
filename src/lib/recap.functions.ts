@@ -21,6 +21,8 @@ export const getMentorRecap = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }) => {
     const { resolveAccount } = await import("./account.server");
+    // ALWAYS use supabaseAdmin (bypasses RLS) to guarantee same data as Admin panel
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { buildMentorRecap } = await import("./recap.server");
     const email = (context.claims as { email?: string }).email ?? null;
     const account = await resolveAccount(context.userId, email);
@@ -29,7 +31,7 @@ export const getMentorRecap = createServerFn({ method: "POST" })
     if (!mentorId) {
       return { account, recap: null as null | Awaited<ReturnType<typeof buildMentorRecap>> };
     }
-    const recap = await buildMentorRecap(context.supabase, mentorId, data.periodId);
+    const recap = await buildMentorRecap(supabaseAdmin, mentorId, data.periodId);
     return { account, recap };
   });
 
@@ -39,8 +41,9 @@ export const getBinaanDetail = createServerFn({ method: "POST" })
     periodInput.extend({ binaanId: z.string() }).parse(data),
   )
   .handler(async ({ data, context }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { buildBinaanDetail } = await import("./recap.server");
-    return buildBinaanDetail(context.supabase, data.binaanId, data.periodId);
+    return buildBinaanDetail(supabaseAdmin, data.binaanId, data.periodId);
   });
 
 export const getAdminDashboard = createServerFn({ method: "POST" })
@@ -116,12 +119,13 @@ export const getMonthlyRecap = createServerFn({ method: "POST" })
   .inputValidator((data: unknown) => z.object({ month: z.string().optional() }).parse(data ?? {}))
   .handler(async ({ data, context }) => {
     const { resolveAccount } = await import("./account.server");
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { listPeriods, buildMentorSummaries } = await import("./recap.server");
     const { monthLabel, averageScore } = await import("./mutabaah-config");
     const email = (context.claims as { email?: string }).email ?? null;
     const account = await resolveAccount(context.userId, email);
 
-    const periods = await listPeriods(context.supabase);
+    const periods = await listPeriods(supabaseAdmin);
     const months = Array.from(new Set(periods.map((p) => monthLabel(p.start_date))));
     const month = data.month && months.includes(data.month) ? data.month : (months[0] ?? null);
     const monthPeriods = periods
@@ -129,12 +133,12 @@ export const getMonthlyRecap = createServerFn({ method: "POST" })
       .sort((a, b) => a.start_date.localeCompare(b.start_date));
 
     const summaries = await buildMentorSummaries(
-      context.supabase,
+      supabaseAdmin,
       null,
       monthPeriods.map((p) => p.id),
     );
 
-    const { data: subs } = await context.supabase
+    const { data: subs } = await supabaseAdmin
       .from("mutabaah_submissions")
       .select("mentor_id, period_id, total_score");
 
@@ -165,6 +169,7 @@ export const getBinaanMonthlyRecap = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }) => {
     const { resolveAccount } = await import("./account.server");
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { buildBinaanMonthlyRecap } = await import("./recap.server");
     const email = (context.claims as { email?: string }).email ?? null;
     const account = await resolveAccount(context.userId, email);
@@ -175,7 +180,7 @@ export const getBinaanMonthlyRecap = createServerFn({ method: "POST" })
       return { months: [], month: "", periods: [], rows: [], mentorName: "-", isAdmin: account.isAdmin };
     }
 
-    const recap = await buildBinaanMonthlyRecap(context.supabase, mentorId, data.month);
+    const recap = await buildBinaanMonthlyRecap(supabaseAdmin, mentorId, data.month);
     return { ...recap, isAdmin: account.isAdmin };
   });
 
@@ -185,16 +190,18 @@ export const getSingleBinaanMonthlyDetail = createServerFn({ method: "POST" })
     z.object({ binaanId: z.string(), month: z.string().optional() }).parse(data),
   )
   .handler(async ({ data, context }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { buildSingleBinaanMonthlyDetail } = await import("./recap.server");
-    return buildSingleBinaanMonthlyDetail(context.supabase, data.binaanId, data.month);
+    return buildSingleBinaanMonthlyDetail(supabaseAdmin, data.binaanId, data.month);
   });
 
 export const getExportRows = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((data: unknown) => periodInput.parse(data ?? {}))
   .handler(async ({ data, context }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { buildExportRows } = await import("./recap.server");
-    return buildExportRows(context.supabase, data.periodId);
+    return buildExportRows(supabaseAdmin, data.periodId);
   });
 
 const saveOverrideSchema = z.object({
