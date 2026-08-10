@@ -108,7 +108,8 @@ export const getMentorHistory = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { buildMentorHistory } = await import("./recap.server");
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    return buildMentorHistory(supabaseAdmin, data.mentorId);
+    const history = await buildMentorHistory(supabaseAdmin, data.mentorId);
+    return { history };
   });
 
 export const getMonthlyRecap = createServerFn({ method: "POST" })
