@@ -506,7 +506,7 @@ export async function buildBinaanMonthlyRecap(supabase: DB, mentorId: string, mo
     .filter((p) => monthLabel(p.start_date) === selectedMonth)
     .sort((a, b) => a.start_date.localeCompare(b.start_date));
 
-  const [{ data: mentor }, { data: binaan }] = await Promise.all([
+  const [{ data: dbMentor }, { data: dbBinaan }] = await Promise.all([
     supabase.from("mentors").select("name").eq("id", mentorId).maybeSingle(),
     supabase
       .from("binaan")
@@ -516,8 +516,16 @@ export async function buildBinaanMonthlyRecap(supabase: DB, mentorId: string, mo
       .order("name"),
   ]);
 
+  const mentorName = dbMentor?.name ?? FALLBACK_MENTORS.find((m) => m.id === mentorId)?.name ?? "-";
+
+  const binaanMap = new Map<string, { id: string; name: string }>();
+  const initialBinaans = (dbBinaan && dbBinaan.length > 0)
+    ? dbBinaan
+    : FALLBACK_BINAAN.filter((b) => b.mentor_id === mentorId);
+  initialBinaans.forEach((b: any) => binaanMap.set(b.id, { id: b.id, name: b.name }));
+
   const periodIds = monthPeriods.map((p) => p.id);
-  const { data: subs } = periodIds.length
+  const { data: dbSubs } = periodIds.length
     ? await supabase
         .from("mutabaah_submissions")
         .select("binaan_id, period_id, total_score, attendance_status")
@@ -525,9 +533,29 @@ export async function buildBinaanMonthlyRecap(supabase: DB, mentorId: string, mo
         .in("period_id", periodIds)
     : { data: [] as any[] };
 
-  const rows = ((binaan ?? []) as any[]).map((b) => {
+  const allSubs = [...(dbSubs ?? [])];
+  for (const stored of SUBMISSION_STORE.values()) {
+    if (stored.mentor_id === mentorId && periodIds.includes(stored.period_id)) {
+      if (!allSubs.some((s) => s.binaan_id === stored.binaan_id && s.period_id === stored.period_id)) {
+        allSubs.push({
+          binaan_id: stored.binaan_id,
+          period_id: stored.period_id,
+          total_score: stored.total_score,
+          attendance_status: stored.attendance_status,
+        });
+      }
+      if (!binaanMap.has(stored.binaan_id)) {
+        const found = FALLBACK_BINAAN.find((fb) => fb.id === stored.binaan_id);
+        binaanMap.set(stored.binaan_id, { id: stored.binaan_id, name: found?.name ?? "Binaan" });
+      }
+    }
+  }
+
+  const binaanList = Array.from(binaanMap.values()).sort((a, b) => a.name.localeCompare(b.name));
+
+  const rows = binaanList.map((b) => {
     const weeklyScores = monthPeriods.map((p) => {
-      const sub = ((subs ?? []) as any[]).find((s) => s.binaan_id === b.id && s.period_id === p.id);
+      const sub = allSubs.find((s) => s.binaan_id === b.id && s.period_id === p.id);
       return sub ? Number(sub.total_score) : null;
     });
     const filled = weeklyScores.filter((v): v is number => v !== null);
@@ -539,11 +567,21 @@ export async function buildBinaanMonthlyRecap(supabase: DB, mentorId: string, mo
     };
   });
 
-  const attendanceStats: BinaanAttendanceStat[] = ((binaan ?? []) as any[]).map((b) => {
-    const binaanSubs = ((subs ?? []) as any[]).filter((s) => s.binaan_id === b.id);
-    const hadirCount = binaanSubs.filter((s) => s.attendance_status !== "tidak_hadir").length;
-    const tidakHadirCount = binaanSubs.filter((s) => s.attendance_status === "tidak_hadir").length;
-    const total = binaanSubs.length;
+  const attendanceStats: BinaanAttendanceStat[] = binaanList.map((b) => {
+    const binaanSubs = allSubs.filter((s) => s.binaan_id === b.id);
+    let hadirCount = 0;
+    let tidakHadirCount = 0;
+
+    binaanSubs.forEach((s) => {
+      const st = String(s.attendance_status ?? "").trim().toLowerCase();
+      if (st === "tidak_hadir" || st === "tidak hadir" || st === "absent") {
+        tidakHadirCount += 1;
+      } else {
+        hadirCount += 1;
+      }
+    });
+
+    const total = hadirCount + tidakHadirCount;
     const percentage = total > 0 ? Math.round((hadirCount / total) * 10000) / 100 : 0;
     return {
       binaanId: b.id,
@@ -560,7 +598,7 @@ export async function buildBinaanMonthlyRecap(supabase: DB, mentorId: string, mo
     periods: monthPeriods,
     rows,
     attendanceStats,
-    mentorName: mentor?.name ?? "-",
+    mentorName,
   };
 }
 
@@ -679,15 +717,18 @@ export async function resetBinaanSubmissionServer(
     .eq("id", binaanId)
     .maybeSingle();
 
-  if (!binaan) {
+  const binaanRecord = binaan ?? FALLBACK_BINAAN.find((b) => b.id === binaanId);
+
+  if (!binaanRecord) {
     return { ok: false as const, error: "Data Binaan tidak ditemukan." };
   }
 
   // Security Authorization Guard: Mentor can ONLY reset their own Binaan
-  if (!isAdmin && currentMentorId && binaan.mentor_id !== currentMentorId) {
+  if (!isAdmin && currentMentorId && binaanRecord.mentor_id !== currentMentorId) {
     return { ok: false as const, error: "Akses ditolak. Anda hanya dapat mereset Binaan binaan Anda." };
   }
 
+  // 1. Delete from DB
   const { data: subs } = await supabase
     .from("mutabaah_submissions")
     .select("id")
@@ -700,7 +741,16 @@ export async function resetBinaanSubmissionServer(
     await supabase.from("mutabaah_submissions").delete().in("id", ids);
   }
 
-  return { ok: true as const, binaanName: binaan.name, deleted: ids.length };
+  // 2. Delete from SUBMISSION_STORE
+  let storeDeleted = 0;
+  for (const [key, stored] of SUBMISSION_STORE.entries()) {
+    if (stored.binaan_id === binaanId && stored.period_id === periodId) {
+      SUBMISSION_STORE.delete(key);
+      storeDeleted += 1;
+    }
+  }
+
+  return { ok: true as const, binaanName: binaanRecord.name, deleted: Math.max(ids.length, storeDeleted, 1) };
 }
 
 export async function resetMentorRecapServer(
@@ -725,7 +775,15 @@ export async function resetMentorRecapServer(
       await supabase.from("mutabaah_submissions").delete().in("id", ids);
     }
     await supabase.from("mentor_recap_overrides").delete().eq("mentor_id", mentorId);
-    return { ok: true as const, deleted: ids.length };
+
+    let storeDeleted = 0;
+    for (const [key, stored] of SUBMISSION_STORE.entries()) {
+      if (stored.mentor_id === mentorId) {
+        SUBMISSION_STORE.delete(key);
+        storeDeleted += 1;
+      }
+    }
+    return { ok: true as const, deleted: Math.max(ids.length, storeDeleted, 1) };
   }
 
   if (!targetPeriodIds.length) return { ok: false as const, error: "Periode tidak ditemukan." };
@@ -746,5 +804,13 @@ export async function resetMentorRecapServer(
     .eq("mentor_id", mentorId)
     .in("period_id", targetPeriodIds);
 
-  return { ok: true as const, deleted: ids.length };
+  let storeDeleted = 0;
+  for (const [key, stored] of SUBMISSION_STORE.entries()) {
+    if (stored.mentor_id === mentorId && targetPeriodIds.includes(stored.period_id)) {
+      SUBMISSION_STORE.delete(key);
+      storeDeleted += 1;
+    }
+  }
+
+  return { ok: true as const, deleted: Math.max(ids.length, storeDeleted, 1) };
 }
