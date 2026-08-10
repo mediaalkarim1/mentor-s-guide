@@ -21,11 +21,7 @@ const binaanSchema = z.object({
 
 const indicatorSchema = z.object({
   id: z.string().optional(),
-  code: z
-    .string()
-    .trim()
-    .min(1)
-    .max(40),
+  code: z.string().trim().min(1).max(40),
   name: z.string().trim().min(2).max(100),
   target: z.number().positive().max(1000),
   unit: z.string().trim().min(1).max(20),
@@ -40,15 +36,34 @@ const periodSchema = z.object({
   status: z.enum(["active", "inactive", "closed"]).default("closed"),
 });
 
+const DENIED = { ok: false as const, error: "Akses ditolak. Hanya Admin yang dapat melakukan aksi ini." };
+
+async function assertAdmin(context: { userId: string; claims: unknown }) {
+  const { requireAdmin } = await import("./account.server");
+  const email = (context.claims as { email?: string }).email ?? null;
+  return requireAdmin(context.userId, email);
+}
+
 export const getAdminData = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     const { resolveAccount } = await import("./account.server");
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { loadAdminData } = await import("./admin.server");
     const email = (context.claims as { email?: string }).email ?? null;
     const account = await resolveAccount(context.userId, email);
-    const data = await loadAdminData(supabaseAdmin);
+
+    if (!account.isAdmin) {
+      // Mentors only get the mentor name list for labels — no admin-only data.
+      const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+      const { data: mentors } = await supabaseAdmin
+        .from("mentors")
+        .select("id, name")
+        .eq("status", "active")
+        .order("name");
+      return { account, mentors: mentors ?? [], binaan: [], indicators: [], periods: [] };
+    }
+
+    const data = await loadAdminData();
     return { account, ...data };
   });
 
@@ -56,32 +71,36 @@ export const saveMentor = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((data: unknown) => mentorSchema.parse(data))
   .handler(async ({ data, context }) => {
+    if (!(await assertAdmin(context))) return DENIED;
     const { saveMentorRow } = await import("./admin.server");
-    return saveMentorRow(context.supabase, data);
+    return saveMentorRow(data);
   });
 
 export const deleteMentor = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((data: unknown) => z.object({ id: z.string() }).parse(data))
   .handler(async ({ data, context }) => {
+    if (!(await assertAdmin(context))) return DENIED;
     const { deleteMentorRow } = await import("./admin.server");
-    return deleteMentorRow(context.supabase, data.id);
+    return deleteMentorRow(data.id);
   });
 
 export const saveBinaan = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((data: unknown) => binaanSchema.parse(data))
   .handler(async ({ data, context }) => {
-    const { upsertRow } = await import("./admin.server");
-    return upsertRow(context.supabase, "binaan", data);
+    if (!(await assertAdmin(context))) return DENIED;
+    const { saveBinaanRow } = await import("./admin.server");
+    return saveBinaanRow(data);
   });
 
 export const deleteBinaan = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((data: unknown) => z.object({ id: z.string() }).parse(data))
   .handler(async ({ data, context }) => {
+    if (!(await assertAdmin(context))) return DENIED;
     const { deleteBinaanRow } = await import("./admin.server");
-    return deleteBinaanRow(context.supabase, data.id);
+    return deleteBinaanRow(data.id);
   });
 
 export const restoreBinaan = createServerFn({ method: "POST" })
@@ -90,22 +109,34 @@ export const restoreBinaan = createServerFn({ method: "POST" })
     z.object({ id: z.string(), mentor_id: z.string().optional() }).parse(data),
   )
   .handler(async ({ data, context }) => {
+    if (!(await assertAdmin(context))) return DENIED;
     const { restoreBinaanRow } = await import("./admin.server");
-    return restoreBinaanRow(context.supabase, data);
+    return restoreBinaanRow(data);
   });
 
 export const saveIndicator = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((data: unknown) => indicatorSchema.parse(data))
   .handler(async ({ data, context }) => {
-    const { upsertRow } = await import("./admin.server");
-    return upsertRow(context.supabase, "mutabaah_indicators", data);
+    if (!(await assertAdmin(context))) return DENIED;
+    const { saveIndicatorRow } = await import("./admin.server");
+    return saveIndicatorRow(data);
+  });
+
+export const deleteIndicator = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data: unknown) => z.object({ id: z.string() }).parse(data))
+  .handler(async ({ data, context }) => {
+    if (!(await assertAdmin(context))) return DENIED;
+    const { deleteIndicatorRow } = await import("./admin.server");
+    return deleteIndicatorRow(data.id);
   });
 
 export const savePeriod = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((data: unknown) => periodSchema.parse(data))
   .handler(async ({ data, context }) => {
+    if (!(await assertAdmin(context))) return DENIED;
     const { savePeriodRow } = await import("./admin.server");
-    return savePeriodRow(context.supabase, data);
+    return savePeriodRow(data);
   });

@@ -66,7 +66,7 @@ function MonthlyPage() {
   const mentorQuery = useQuery({
     queryKey: ["mentor-monthly", month],
     queryFn: () => fetchMentorMonthly({ data: month ? { month } : {} }),
-    enabled: viewMode === "mentor" || binaanQuery.data?.isAdmin,
+    enabled: viewMode === "mentor" || Boolean(binaanQuery.data?.isAdmin),
   });
 
   const isAdmin = binaanQuery.data?.isAdmin ?? false;

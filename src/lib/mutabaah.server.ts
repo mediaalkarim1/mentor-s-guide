@@ -1,13 +1,5 @@
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { scoreFor } from "./mutabaah-config";
-import { getMasterStore, updateMasterStore } from "./master_overrides.server";
-import {
-  MASTER_MENTORS,
-  MASTER_BINAAN,
-  MASTER_INDICATORS,
-  MASTER_PERIOD,
-  type MasterIndicator,
-} from "./master-data";
 
 export type PublicIndicator = {
   id: string;
@@ -26,57 +18,28 @@ export type PublicFormData = {
 };
 
 export async function loadPublicFormData(): Promise<PublicFormData> {
-  const store = getMasterStore();
-
-  let periodRes: any, mentorRes: any, binaanRes: any, indicatorRes: any;
-  try {
-    [periodRes, mentorRes, binaanRes, indicatorRes] = await Promise.all([
-      supabaseAdmin
-        .from("mutabaah_periods")
-        .select("id, start_date, end_date, status")
-        .eq("status", "active")
-        .order("start_date", { ascending: false })
-        .limit(1)
-        .maybeSingle(),
-      supabaseAdmin.from("mentors").select("id, name").eq("status", "active").order("name"),
-      supabaseAdmin
-        .from("binaan")
-        .select("id, name, mentor_id")
-        .eq("status", "active")
-        .order("name"),
-      supabaseAdmin
-        .from("mutabaah_indicators")
-        .select("id, code, name, target, unit, order_number")
-        .eq("active", true)
-        .order("order_number"),
-    ]);
-  } catch (e) {
-    console.warn("loadPublicFormData DB fetch exception, using master fallback data", e);
-  }
-
-  const activePeriodFromStore = store.periods.find((p) => p.status === "active");
-  const period = activePeriodFromStore ?? periodRes?.data ?? MASTER_PERIOD;
-
-  const mentorMap = new Map<string, any>();
-  store.mentors.forEach((m) => mentorMap.set((m.name || "").toLowerCase().trim(), m));
-  (mentorRes?.data ?? []).forEach((m: any) => mentorMap.set((m.name || "").toLowerCase().trim(), m));
-  const mentors = Array.from(mentorMap.values()).length > 0 ? Array.from(mentorMap.values()) : MASTER_MENTORS;
-
-  const binaanMap = new Map<string, any>();
-  store.binaan.forEach((b) => binaanMap.set(`${(b.name || "").toLowerCase().trim()}::${b.mentor_id}`, b));
-  (binaanRes?.data ?? []).forEach((b: any) => binaanMap.set(`${(b.name || "").toLowerCase().trim()}::${b.mentor_id}`, b));
-  const binaan = Array.from(binaanMap.values()).length > 0 ? Array.from(binaanMap.values()) : MASTER_BINAAN;
-
-  const indicatorMap = new Map<string, any>();
-  store.indicators.forEach((i) => indicatorMap.set((i.code || "").toUpperCase().trim(), i));
-  (indicatorRes?.data ?? []).forEach((i: any) => indicatorMap.set((i.code || "").toUpperCase().trim(), i));
-  const indicators = Array.from(indicatorMap.values()).length > 0 ? Array.from(indicatorMap.values()) : MASTER_INDICATORS;
+  const [periodRes, mentorRes, binaanRes, indicatorRes] = await Promise.all([
+    supabaseAdmin
+      .from("mutabaah_periods")
+      .select("id, start_date, end_date, status")
+      .eq("status", "active")
+      .order("start_date", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+    supabaseAdmin.from("mentors").select("id, name").eq("status", "active").order("name"),
+    supabaseAdmin.from("binaan").select("id, name, mentor_id").eq("status", "active").order("name"),
+    supabaseAdmin
+      .from("mutabaah_indicators")
+      .select("id, code, name, target, unit, order_number")
+      .eq("active", true)
+      .order("order_number"),
+  ]);
 
   return {
-    period,
-    mentors,
-    binaan,
-    indicators: indicators as PublicIndicator[],
+    period: periodRes.data ?? null,
+    mentors: (mentorRes.data ?? []) as { id: string; name: string }[],
+    binaan: (binaanRes.data ?? []) as { id: string; name: string; mentor_id: string }[],
+    indicators: (indicatorRes.data ?? []) as PublicIndicator[],
   };
 }
 
@@ -90,80 +53,25 @@ export type SubmitResult =
   | { ok: true; binaanName: string; mentorName: string; period: string; score: number }
   | { ok: false; error: string };
 
-let _rlsBootstrapped = false;
-async function ensureSubmissionRLS() {
-  if (_rlsBootstrapped) return;
-  _rlsBootstrapped = true;
-  const statements = [
-    `GRANT SELECT, INSERT, UPDATE ON public.mutabaah_submissions TO anon`,
-    `GRANT SELECT, INSERT, DELETE ON public.mutabaah_entries TO anon`,
-    `DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname='public' AND tablename='mutabaah_submissions' AND policyname='public insert submissions') THEN CREATE POLICY "public insert submissions" ON public.mutabaah_submissions FOR INSERT TO anon, authenticated WITH CHECK (true); END IF; END $$`,
-    `DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname='public' AND tablename='mutabaah_submissions' AND policyname='public update submissions') THEN CREATE POLICY "public update submissions" ON public.mutabaah_submissions FOR UPDATE TO anon, authenticated USING (true) WITH CHECK (true); END IF; END $$`,
-    `DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname='public' AND tablename='mutabaah_submissions' AND policyname='public select submissions') THEN CREATE POLICY "public select submissions" ON public.mutabaah_submissions FOR SELECT TO anon, authenticated USING (true); END IF; END $$`,
-    `DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname='public' AND tablename='mutabaah_entries' AND policyname='public insert entries') THEN CREATE POLICY "public insert entries" ON public.mutabaah_entries FOR INSERT TO anon, authenticated WITH CHECK (true); END IF; END $$`,
-    `DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname='public' AND tablename='mutabaah_entries' AND policyname='public delete entries') THEN CREATE POLICY "public delete entries" ON public.mutabaah_entries FOR DELETE TO anon, authenticated USING (true); END IF; END $$`,
-    `DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname='public' AND tablename='mutabaah_entries' AND policyname='public select entries') THEN CREATE POLICY "public select entries" ON public.mutabaah_entries FOR SELECT TO anon, authenticated USING (true); END IF; END $$`,
-  ];
-  for (const sql of statements) {
-    try {
-      await (supabaseAdmin as any).rpc('exec_sql', { query: sql });
-    } catch (_) {
-      // exec_sql not available — skip (production service_role handles this via migration)
-    }
-  }
-}
-
-
-
 export async function submitMutabaahRecord(payload: SubmitPayload): Promise<SubmitResult> {
-  // Ensure public INSERT RLS is in place for mutabaah_submissions (idempotent)
-  await ensureSubmissionRLS();
-
-  const store = getMasterStore();
-
-
-  let binaan = (await supabaseAdmin
+  const { data: binaan } = await supabaseAdmin
     .from("binaan")
     .select("id, name, mentor_id, status")
     .eq("id", payload.binaanId)
-    .maybeSingle()).data;
+    .maybeSingle();
 
-  if (!binaan) {
-    const storeB = store.binaan.find((b) => b.id === payload.binaanId || b.name.toLowerCase() === payload.binaanId.toLowerCase());
-    if (storeB) {
-      binaan = { id: storeB.id, name: storeB.name, mentor_id: storeB.mentor_id, status: "active" };
-    } else {
-      const masterB = MASTER_BINAAN.find((b) => b.id === payload.binaanId || b.name.toLowerCase() === payload.binaanId.toLowerCase());
-      if (masterB) {
-        binaan = { id: masterB.id, name: masterB.name, mentor_id: masterB.mentor_id, status: "active" };
-      }
-    }
-  }
-
-  if (!binaan) {
+  if (!binaan || binaan.status !== "active") {
     return { ok: false, error: "Nama Binaan tidak terdaftar. Silakan pilih dari daftar." };
   }
 
-  let mentor = (await supabaseAdmin
+  const { data: mentor } = await supabaseAdmin
     .from("mentors")
     .select("id, name, status")
     .eq("id", payload.mentorId)
-    .maybeSingle()).data;
+    .maybeSingle();
 
-  if (!mentor) {
-    const storeM = store.mentors.find((m) => m.id === payload.mentorId || m.name.toLowerCase() === payload.mentorId.toLowerCase());
-    if (storeM) {
-      mentor = { id: storeM.id, name: storeM.name, status: "active" };
-    } else {
-      const masterM = MASTER_MENTORS.find((m) => m.id === payload.mentorId || m.name.toLowerCase() === payload.mentorId.toLowerCase());
-      if (masterM) {
-        mentor = { id: masterM.id, name: masterM.name, status: "active" };
-      }
-    }
-  }
-
-  if (!mentor) {
-    return { ok: false, error: "Mentor tidak ditemukan." };
+  if (!mentor || mentor.status !== "active") {
+    return { ok: false, error: "Mentor tidak ditemukan atau tidak aktif." };
   }
 
   if (binaan.mentor_id !== mentor.id) {
@@ -173,29 +81,37 @@ export async function submitMutabaahRecord(payload: SubmitPayload): Promise<Subm
     };
   }
 
-  let period = (await supabaseAdmin
+  const { data: period } = await supabaseAdmin
     .from("mutabaah_periods")
-    .select("id, start_date, end_date, status")
+    .select("id, start_date, end_date")
     .eq("status", "active")
     .order("start_date", { ascending: false })
     .limit(1)
-    .maybeSingle()).data;
+    .maybeSingle();
 
   if (!period) {
-    const activeStorePeriod = store.periods.find((p) => p.status === "active");
-    period = activeStorePeriod ?? MASTER_PERIOD;
+    return { ok: false, error: "Belum ada periode mutabaah yang aktif. Hubungi Admin." };
   }
 
-  const indicatorList = MASTER_INDICATORS;
-  const byId = new Map(indicatorList.map((i) => [i.id, Number(i.target)]));
+  const { data: indicatorRows } = await supabaseAdmin
+    .from("mutabaah_indicators")
+    .select("id, target")
+    .eq("active", true)
+    .order("order_number");
 
-  for (const indicator of indicatorList) {
+  const indicators = (indicatorRows ?? []) as { id: string; target: number }[];
+  if (indicators.length === 0) {
+    return { ok: false, error: "Indikator mutabaah belum tersedia. Hubungi Admin." };
+  }
+
+  for (const indicator of indicators) {
     const entry = payload.entries.find((e) => e.indicatorId === indicator.id);
     if (!entry || entry.realization === null || entry.realization === undefined) {
       return { ok: false, error: "Semua indikator mutabaah wajib diisi." };
     }
   }
 
+  const byId = new Map(indicators.map((i) => [i.id, Number(i.target)]));
   const scored = payload.entries
     .filter((e) => byId.has(e.indicatorId))
     .map((e) => {
@@ -210,62 +126,36 @@ export async function submitMutabaahRecord(payload: SubmitPayload): Promise<Subm
     });
 
   const totalScore =
-    Math.round(
-      (scored.reduce((sum, s) => sum + s.achievement_percentage, 0) / scored.length) * 100,
-    ) / 100;
+    Math.round((scored.reduce((sum, s) => sum + s.achievement_percentage, 0) / scored.length) * 100) / 100;
 
-  // Double-lock persistence: save submission to server master store
-  updateMasterStore("submissions", "upsert", {
-    binaan_id: binaan.id,
-    binaanName: binaan.name,
-    mentor_id: mentor.id,
-    mentorName: mentor.name,
-    period_id: period.id,
-    total_score: totalScore,
-    status: "submitted",
-    submitted_at: new Date().toISOString(),
-    mutabaah_entries: scored,
-  });
-
-  // Ensure mentor, binaan, and period records exist in DB before inserting mutabaah_submissions
-  try {
-    await supabaseAdmin.from("mentors").upsert({ id: mentor.id, name: mentor.name, status: "active" }, { onConflict: "id" });
-  } catch (_) {}
-
-  try {
-    await supabaseAdmin.from("binaan").upsert({ id: binaan.id, name: binaan.name, mentor_id: mentor.id, status: "active" }, { onConflict: "id" });
-  } catch (_) {}
-
-  try {
-    await supabaseAdmin.from("mutabaah_periods").upsert({ id: period.id, start_date: period.start_date, end_date: period.end_date, status: period.status ?? "active" }, { onConflict: "id" });
-  } catch (_) {}
-
-  // DB insertion
-  try {
-    const { data: submission } = await supabaseAdmin
-      .from("mutabaah_submissions")
-      .upsert({
+  const { data: submission, error: submissionError } = await supabaseAdmin
+    .from("mutabaah_submissions")
+    .upsert(
+      {
         binaan_id: binaan.id,
         mentor_id: mentor.id,
         period_id: period.id,
         total_score: totalScore,
         status: "submitted",
-      }, { onConflict: "binaan_id,period_id" })
-      .select("id")
-      .single();
+      },
+      { onConflict: "binaan_id,period_id" },
+    )
+    .select("id")
+    .single();
 
-    if (submission?.id) {
-      await supabaseAdmin
-        .from("mutabaah_entries")
-        .delete()
-        .eq("submission_id", submission.id);
+  if (submissionError || !submission?.id) {
+    console.error("submitMutabaahRecord error:", submissionError);
+    return { ok: false, error: "Gagal menyimpan data mutabaah. Silakan coba lagi." };
+  }
 
-      await supabaseAdmin
-        .from("mutabaah_entries")
-        .insert(scored.map((s) => ({ ...s, submission_id: submission.id })));
-    }
-  } catch (e) {
-    console.warn("DB submission insert warning, proceeding with score response", e);
+  await supabaseAdmin.from("mutabaah_entries").delete().eq("submission_id", submission.id);
+  const { error: entriesError } = await supabaseAdmin
+    .from("mutabaah_entries")
+    .insert(scored.map((s) => ({ ...s, submission_id: submission.id })));
+
+  if (entriesError) {
+    console.error("submitMutabaahRecord entries error:", entriesError);
+    return { ok: false, error: "Gagal menyimpan rincian indikator. Silakan coba lagi." };
   }
 
   return {

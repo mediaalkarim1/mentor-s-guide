@@ -17,7 +17,6 @@ export type Database = {
       binaan: {
         Row: {
           created_at: string
-          deleted_at: string | null
           id: string
           mentor_id: string
           name: string
@@ -27,7 +26,6 @@ export type Database = {
         }
         Insert: {
           created_at?: string
-          deleted_at?: string | null
           id?: string
           mentor_id: string
           name: string
@@ -37,7 +35,6 @@ export type Database = {
         }
         Update: {
           created_at?: string
-          deleted_at?: string | null
           id?: string
           mentor_id?: string
           name?: string
@@ -55,6 +52,57 @@ export type Database = {
           },
         ]
       }
+      mentor_recap_overrides: {
+        Row: {
+          created_at: string
+          id: string
+          is_override: boolean
+          manual_monthly_score: number | null
+          manual_status: string | null
+          manual_weekly_score: number | null
+          mentor_id: string
+          period_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_override?: boolean
+          manual_monthly_score?: number | null
+          manual_status?: string | null
+          manual_weekly_score?: number | null
+          mentor_id: string
+          period_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_override?: boolean
+          manual_monthly_score?: number | null
+          manual_status?: string | null
+          manual_weekly_score?: number | null
+          mentor_id?: string
+          period_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mentor_recap_overrides_mentor_id_fkey"
+            columns: ["mentor_id"]
+            isOneToOne: false
+            referencedRelation: "mentors"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "mentor_recap_overrides_period_id_fkey"
+            columns: ["period_id"]
+            isOneToOne: false
+            referencedRelation: "mutabaah_periods"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       mentors: {
         Row: {
           created_at: string
@@ -62,8 +110,8 @@ export type Database = {
           id: string
           name: string
           status: string
-          username: string | null
           user_id: string | null
+          username: string | null
         }
         Insert: {
           created_at?: string
@@ -71,8 +119,8 @@ export type Database = {
           id?: string
           name: string
           status?: string
-          username?: string | null
           user_id?: string | null
+          username?: string | null
         }
         Update: {
           created_at?: string
@@ -80,8 +128,8 @@ export type Database = {
           id?: string
           name?: string
           status?: string
-          username?: string | null
           user_id?: string | null
+          username?: string | null
         }
         Relationships: []
       }

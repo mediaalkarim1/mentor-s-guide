@@ -1,5 +1,4 @@
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
-import { MASTER_MENTORS } from "./master-data";
 
 export type AccountContext = {
   userId: string;
@@ -8,95 +7,65 @@ export type AccountContext = {
   mentor: { id: string; name: string } | null;
 };
 
-export async function ensureUserRole(userId: string, role: string) {
-  try {
-    const { data: existing } = await supabaseAdmin
-      .from("user_roles")
-      .select("id")
-      .eq("user_id", userId)
-      .eq("role", role)
-      .maybeSingle();
+export async function ensureUserRole(userId: string, role: "admin" | "mentor") {
+  const { data: existing } = await supabaseAdmin
+    .from("user_roles")
+    .select("id")
+    .eq("user_id", userId)
+    .eq("role", role)
+    .maybeSingle();
 
-    if (!existing) {
-      await supabaseAdmin.from("user_roles").insert({ user_id: userId, role });
-    }
-  } catch (err) {
-    console.error("ensureUserRole error:", err);
+  if (!existing) {
+    await supabaseAdmin.from("user_roles").insert({ user_id: userId, role });
   }
 }
 
 /**
- * Resolves the signed-in user's role. Strictly isolates Admin vs Mentor permissions.
+ * Resolves the signed-in user's role strictly from the database:
+ * - admin  -> a row in user_roles with role = 'admin'
+ * - mentor -> a row in mentors linked by user_id (or by email, then linked)
  */
 export async function resolveAccount(userId: string, email: string | null): Promise<AccountContext> {
-  const normalized = email?.toLowerCase().trim() ?? "";
+  const normalized = email?.toLowerCase().trim() ?? null;
 
-  // Fetch current roles from user_roles
   const { data: roles } = await supabaseAdmin.from("user_roles").select("role").eq("user_id", userId);
-  const roleList = (roles ?? []).map((r) => String(r.role).toLowerCase().trim());
+  const roleList = ((roles ?? []) as { role: string }[]).map((r) => String(r.role).toLowerCase());
 
-  // Strictly check if user is Admin by email/username or explicit admin role
-  const isAdmin =
-    roleList.includes("admin") ||
-    normalized.startsWith("admin") ||
-    normalized === "admin@mutabaah.sch.id" ||
-    normalized === "admin@mutabaah.local";
-
-  if (isAdmin) {
-    await ensureUserRole(userId, "admin");
-    return {
-      userId,
-      email: normalized,
-      isAdmin: true,
-      mentor: null,
-    };
+  if (roleList.includes("admin")) {
+    return { userId, email: normalized, isAdmin: true, mentor: null };
   }
 
-  // Resolve Mentor account
   let mentor: { id: string; name: string } | null = null;
 
-  if (normalized) {
-    const { data: mentorRow } = await supabaseAdmin
+  const { data: linked } = await supabaseAdmin
+    .from("mentors")
+    .select("id, name")
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (linked) mentor = { id: linked.id, name: linked.name };
+
+  if (!mentor && normalized) {
+    const { data: byEmail } = await supabaseAdmin
       .from("mentors")
       .select("id, name, user_id")
       .eq("email", normalized)
       .maybeSingle();
-
-    if (mentorRow) {
-      if (!mentorRow.user_id) {
-        await supabaseAdmin.from("mentors").update({ user_id: userId }).eq("id", mentorRow.id);
-      }
-      mentor = { id: mentorRow.id, name: mentorRow.name };
+    if (byEmail && !byEmail.user_id) {
+      await supabaseAdmin.from("mentors").update({ user_id: userId }).eq("id", byEmail.id);
+      mentor = { id: byEmail.id, name: byEmail.name };
+    } else if (byEmail) {
+      mentor = { id: byEmail.id, name: byEmail.name };
     }
   }
 
-  if (!mentor) {
-    const { data: linked } = await supabaseAdmin
-      .from("mentors")
-      .select("id, name")
-      .eq("user_id", userId)
-      .maybeSingle();
-    if (linked) mentor = { id: linked.id, name: linked.name };
+  if (mentor && !roleList.includes("mentor")) {
+    await ensureUserRole(userId, "mentor");
   }
 
-  // Fallback to MASTER_MENTORS if not yet linked in DB
-  if (!mentor && normalized) {
-    const userSlug = normalized.split("@")[0].replace(/[^a-z0-9]/g, "");
-    const matchedMaster = MASTER_MENTORS.find((m) => {
-      const mSlug = m.name.toLowerCase().replace(/[^a-z0-9]/g, "");
-      return mSlug.includes(userSlug) || userSlug.includes(mSlug);
-    });
-    if (matchedMaster) {
-      mentor = { id: matchedMaster.id, name: matchedMaster.name };
-    }
-  }
+  return { userId, email: normalized, isAdmin: false, mentor };
+}
 
-  await ensureUserRole(userId, "mentor");
-
-  return {
-    userId,
-    email: normalized,
-    isAdmin: false,
-    mentor,
-  };
+export async function requireAdmin(userId: string, email: string | null) {
+  const account = await resolveAccount(userId, email);
+  return account.isAdmin ? account : null;
 }
