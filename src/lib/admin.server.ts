@@ -10,6 +10,22 @@ function mentorEmailFor(username: string) {
   return `${slugify(username)}@${MENTOR_EMAIL_DOMAIN}`;
 }
 
+const MASTER_MENTORS_LIST = [
+  { id: "11111111-1111-1111-1111-111111111111", name: "Abi Azam", username: "abi_azam", email: "abi_azam@mutabaah.local", status: "active", user_id: null },
+  { id: "a1000000-0000-0000-0000-000000000012", name: "Abi Endi", username: "abi_endi", email: "abi_endi@mutabaah.local", status: "active", user_id: null },
+  { id: "a1000000-0000-0000-0000-000000000013", name: "Abi Tama", username: "abi_tama", email: "abi_tama@mutabaah.local", status: "active", user_id: null },
+  { id: "a1000000-0000-0000-0000-000000000006", name: "Umi Ditha", username: "umi_ditha", email: "umi_ditha@mutabaah.local", status: "active", user_id: null },
+  { id: "a1000000-0000-0000-0000-000000000001", name: "Umi Indah", username: "umi_indah", email: "umi_indah@mutabaah.local", status: "active", user_id: null },
+  { id: "a1000000-0000-0000-0000-000000000002", name: "Umi Melisa", username: "umi_melisa", email: "umi_melisa@mutabaah.local", status: "active", user_id: null },
+  { id: "a1000000-0000-0000-0000-000000000011", name: "Umi Miftah", username: "umi_miftah", email: "umi_miftah@mutabaah.local", status: "active", user_id: null },
+  { id: "a1000000-0000-0000-0000-000000000003", name: "Umi Navi", username: "umi_navi", email: "umi_navi@mutabaah.local", status: "active", user_id: null },
+  { id: "a1000000-0000-0000-0000-000000000009", name: "Umi Nia", username: "umi_nia", email: "umi_nia@mutabaah.local", status: "active", user_id: null },
+  { id: "a1000000-0000-0000-0000-000000000004", name: "Umi Novi", username: "umi_novi", email: "umi_novi@mutabaah.local", status: "active", user_id: null },
+  { id: "a1000000-0000-0000-0000-000000000005", name: "Umi Okti", username: "umi_okti", email: "umi_okti@mutabaah.local", status: "active", user_id: null },
+  { id: "a1000000-0000-0000-0000-000000000008", name: "Umi Resty", username: "umi_resty", email: "umi_resty@mutabaah.local", status: "active", user_id: null },
+  { id: "a1000000-0000-0000-0000-000000000010", name: "Umi Tiwi", username: "umi_tiwi", email: "umi_tiwi@mutabaah.local", status: "active", user_id: null },
+];
+
 export async function loadAdminData() {
   const [mRes, bRes, iRes, pRes] = await Promise.all([
     supabaseAdmin.from("mentors").select("id, name, username, email, status, user_id").order("name"),
@@ -24,7 +40,9 @@ export async function loadAdminData() {
       .order("start_date", { ascending: false }),
   ]);
 
-  const mentors = ((mRes.data ?? []) as any[]).map((m) => ({
+  const rawMentors = (mRes.data && mRes.data.length > 0) ? mRes.data : MASTER_MENTORS_LIST;
+
+  const mentors = (rawMentors as any[]).map((m) => ({
     ...m,
     username: m.username ?? (m.email ? String(m.email).split("@")[0] : slugify(m.name)),
     hasAccount: Boolean(m.user_id),
@@ -34,7 +52,9 @@ export async function loadAdminData() {
     mentors,
     binaan: bRes.data ?? [],
     indicators: iRes.data ?? [],
-    periods: pRes.data ?? [],
+    periods: (pRes.data && pRes.data.length > 0) ? pRes.data : [
+      { id: "p1000000-0000-0000-0000-000000000004", start_date: "2026-08-10", end_date: "2026-08-16", status: "active" }
+    ],
   };
 }
 
