@@ -5,8 +5,6 @@ import { Check, ChevronsUpDown, Loader2, ShieldCheck } from "lucide-react";
 
 import { getPublicFormData, submitMutabaah } from "@/lib/mutabaah.functions";
 import { formatDisplayScore, formatPeriod, optionsFor } from "@/lib/mutabaah-config";
-import { MASTER_BINAAN, MASTER_INDICATORS, MASTER_MENTORS, MASTER_PERIOD } from "@/lib/master-data";
-import { getClientMasterStore } from "@/lib/master_store_client";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { ScoreBadge } from "@/components/ScoreBadge";
@@ -59,37 +57,30 @@ export function MutabaahForm() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<SuccessState | null>(null);
 
-  const clientStore = getClientMasterStore();
-  const binaanList = useMemo(() => {
-    const map = new Map<string, any>();
-    clientStore.binaan.forEach((b) => map.set(b.id, b));
-    (data?.binaan ?? []).forEach((b: any) => map.set(b.id, b));
-    const list = Array.from(map.values());
-    return list.length > 0 ? list : MASTER_BINAAN;
-  }, [data?.binaan, clientStore.binaan]);
+  const binaanList = useMemo(
+    () => (data?.binaan ?? []) as { id: string; name: string; mentor_id: string }[],
+    [data?.binaan],
+  );
 
-  const mentors = useMemo(() => {
-    const map = new Map<string, any>();
-    clientStore.mentors.forEach((m) => map.set(m.id, m));
-    (data?.mentors ?? []).forEach((m: any) => map.set(m.id, m));
-    const list = Array.from(map.values());
-    return list.length > 0 ? list : MASTER_MENTORS;
-  }, [data?.mentors, clientStore.mentors]);
+  const mentors = useMemo(
+    () => (data?.mentors ?? []) as { id: string; name: string }[],
+    [data?.mentors],
+  );
 
-  const indicators = useMemo(() => {
-    const map = new Map<string, any>();
-    clientStore.indicators.forEach((i) => map.set(i.id, i));
-    (data?.indicators ?? []).forEach((i: any) => map.set(i.id, i));
-    const list = Array.from(map.values()).sort((a, b) => (a.order_number || 0) - (b.order_number || 0));
-    return list.length > 0 ? list : MASTER_INDICATORS;
-  }, [data?.indicators, clientStore.indicators]);
+  const indicators = useMemo(
+    () =>
+      [...((data?.indicators ?? []) as any[])].sort(
+        (a, b) => (a.order_number || 0) - (b.order_number || 0),
+      ),
+    [data?.indicators],
+  );
 
   const selectedBinaan = binaanList.find((b) => b.id === binaanId);
 
-  const activePeriod = clientStore.periods.find((p) => p.status === "active") ?? data?.period ?? MASTER_PERIOD;
+  const activePeriod = data?.period ?? null;
   const periodLabel = activePeriod
     ? formatPeriod(activePeriod.start_date, activePeriod.end_date)
-    : formatPeriod(MASTER_PERIOD.start_date, MASTER_PERIOD.end_date);
+    : "Belum ada periode aktif";
 
   const mismatch = useMemo(
     () => Boolean(selectedBinaan && mentorId && selectedBinaan.mentor_id !== mentorId),
