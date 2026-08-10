@@ -7,6 +7,7 @@ export default defineConfig({
     base: isGitHubPages ? "/mentor-s-guide/" : "/",
   },
   nitro: {
+    name: "mutabaah",
     prerender: {
       crawlLinks: true,
       routes: ["/", "/mutabaah", "/panduan", "/login"],
