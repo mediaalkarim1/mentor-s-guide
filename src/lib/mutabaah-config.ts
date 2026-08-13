@@ -101,7 +101,7 @@ export function optionsFor(codeOrTarget: string | number, target?: number, unit?
     }
   }
 
-  return [...baseOptions, { label: "Uzur", value: UZUR_VALUE, isUzur: true, score: undefined }];
+  return [...baseOptions, { label: "Uzur", value: UZUR_VALUE, isUzur: true } as CapaianOption];
 }
 
 export function scoreFor(realization: number, target: number): number {

@@ -290,7 +290,8 @@ export async function submitMutabaahRecord(payload: SubmitPayload): Promise<Subm
       : 0;
 
   const attendanceStatus = payload.attendanceStatus === "tidak_hadir" ? "tidak_hadir" : "hadir";
-  const mentoringDate = payload.mentoringDate || new Date().toISOString().split("T")[0];
+  const mentoringDate: string =
+    payload.mentoringDate || new Date().toISOString().slice(0, 10);
   const attendanceNote = payload.attendanceNote?.trim() || null;
 
   console.log("STEP 1: Upserting mutabaah_submissions...");

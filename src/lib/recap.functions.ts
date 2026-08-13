@@ -178,7 +178,15 @@ export const getBinaanMonthlyRecap = createServerFn({ method: "POST" })
     // Strict Mentor Data Isolation:
     const mentorId = account.isAdmin && data.mentorId ? data.mentorId : account.mentor?.id;
     if (!mentorId) {
-      return { months: [], month: "", periods: [], rows: [], mentorName: "-", isAdmin: account.isAdmin };
+      return {
+        months: [] as string[],
+        month: "",
+        periods: [] as any[],
+        rows: [] as any[],
+        attendanceStats: [] as any[],
+        mentorName: "-",
+        isAdmin: account.isAdmin,
+      };
     }
 
     const recap = await buildBinaanMonthlyRecap(supabaseAdmin, mentorId, data.month);

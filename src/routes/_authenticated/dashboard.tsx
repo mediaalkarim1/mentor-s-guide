@@ -11,6 +11,7 @@ import { formatDisplayScore, formatPeriod } from "@/lib/mutabaah-config";
 import { ScoreBadge } from "@/components/ScoreBadge";
 import { Button } from "@/components/ui/button";
 import { downloadCsv } from "@/lib/export";
+import { cn } from "@/lib/utils";
 import {
   Select,
   SelectContent,
