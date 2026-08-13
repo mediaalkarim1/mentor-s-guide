@@ -79,7 +79,8 @@ export async function resolveAccount(userId: string, email: string | null): Prom
   }
 
   if (!mentor) {
-    mentor = { id: FALLBACK_MENTORS[0].id, name: FALLBACK_MENTORS[0].name };
+    const first = FALLBACK_MENTORS[0];
+    if (first) mentor = { id: first.id, name: first.name };
   }
 
   if (mentor && !roleList.includes("mentor")) {

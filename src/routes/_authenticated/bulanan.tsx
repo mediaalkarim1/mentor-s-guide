@@ -226,7 +226,7 @@ function MonthlyPage() {
                           <span>{row.binaanName}</span>
                         </button>
                       </td>
-                      {row.weeklyScores.map((score, i) => (
+                      {row.weeklyScores.map((score: number | null, i: number) => (
                         <td
                           key={i}
                           className="px-3 py-3 text-center tabular-nums text-xs text-[#52635C]"

@@ -8,14 +8,14 @@ export const getRouter = () => {
   const isGhPages =
     typeof window !== "undefined"
       ? window.location.pathname.startsWith("/mentor-s-guide")
-      : process.env.GITHUB_PAGES === "true";
+      : process.env['GITHUB_PAGES'] === "true";
 
   const router = createRouter({
     routeTree,
     context: { queryClient },
     scrollRestoration: true,
     defaultPreloadStaleTime: 0,
-    basepath: isGhPages ? "/mentor-s-guide" : undefined,
+    ...(isGhPages ? { basepath: "/mentor-s-guide" } : {}),
   });
 
   return router;
