@@ -139,6 +139,7 @@ export type Database = {
           created_at: string
           id: string
           indicator_id: string
+          is_uzur: boolean
           realization: number
           submission_id: string
           target: number
@@ -148,6 +149,7 @@ export type Database = {
           created_at?: string
           id?: string
           indicator_id: string
+          is_uzur?: boolean
           realization: number
           submission_id: string
           target: number
@@ -157,6 +159,7 @@ export type Database = {
           created_at?: string
           id?: string
           indicator_id?: string
+          is_uzur?: boolean
           realization?: number
           submission_id?: string
           target?: number
@@ -237,9 +240,12 @@ export type Database = {
       }
       mutabaah_submissions: {
         Row: {
+          attendance_note: string | null
+          attendance_status: string
           binaan_id: string
           id: string
           mentor_id: string
+          mentoring_date: string | null
           period_id: string
           status: string
           submitted_at: string
@@ -247,9 +253,12 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          attendance_note?: string | null
+          attendance_status?: string
           binaan_id: string
           id?: string
           mentor_id: string
+          mentoring_date?: string | null
           period_id: string
           status?: string
           submitted_at?: string
@@ -257,9 +266,12 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          attendance_note?: string | null
+          attendance_status?: string
           binaan_id?: string
           id?: string
           mentor_id?: string
+          mentoring_date?: string | null
           period_id?: string
           status?: string
           submitted_at?: string
